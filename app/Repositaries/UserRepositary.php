@@ -14,13 +14,13 @@ class UserRepositary implements UserRepositaryInterface
             'name' => 'Guest-' . Str::random(5),
             'anonymous_id' => Str::uuid(),
             'role' => 'anonymous',
-            'device_id' => $data['device_id'] ?? null,
+            'fcm_token' => $data['fcm_token'] ?? null,
             'language' => $data['language'] ?? 'en',
         ]);
     }
     
-    public function findByDeviceId($deviceId)
+    public function findByFcmToken($fcmToken)
     {
-        return User::where('device_id', $deviceId)->first();
+        return User::where('fcm_token', $fcmToken)->first();
     }
 }

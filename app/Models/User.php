@@ -26,7 +26,7 @@ class User extends Authenticatable
         'anonymous_id',
         'role',
         'language',
-        'device_id',
+        'fcm_token',
         'last_active_at',
     ];
 

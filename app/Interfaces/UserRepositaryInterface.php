@@ -5,5 +5,5 @@ namespace App\Interfaces;
 interface UserRepositaryInterface
 {
     public function createAnonymousUser(array $data);
-    public function findByDeviceId($deviceId);
+    public function findByFcmToken($fcmToken);
 }

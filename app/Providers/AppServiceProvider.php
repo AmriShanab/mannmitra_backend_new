@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Interfaces\SessionRepositaryInterface;
 use App\Interfaces\UserRepositaryInterface;
+use App\Repositaries\SessionRepositary;
 use App\Repositaries\UserRepositary;
 use Illuminate\Support\ServiceProvider;
 
@@ -14,6 +16,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(UserRepositaryInterface::class, UserRepositary::class);
+        $this->app->bind(SessionRepositaryInterface::class, SessionRepositary::class);
     }
 
     /**

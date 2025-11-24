@@ -22,8 +22,9 @@ class AuthController extends Controller
     public function guestLogin(Request $request)
     {
         $validated = $request->validate([
-            'device_id' => 'nullable|string',
-            'language' => 'nullable|string|size:2'
+            'fcm_token' => 'nullable|string',
+            'languageCode' => 'nullable|string|size:2',
+            'session_type' => 'nullable|in:text, voice, video',
         ]);
 
         try {
@@ -35,6 +36,11 @@ class AuthController extends Controller
 
             return $this->successResponse([
                 'user' => new UserResource($result['user']),
+                'session' => [
+                    'id' => $result['current_session']->id,
+                    'type' => $result['current_session']->type,
+                    'created_at' => $result['current_session']->created_at,
+                ],
                 'token' => $result['token'],
                 
             ], 'Anonymous Session Start Successfully');
