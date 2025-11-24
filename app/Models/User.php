@@ -54,4 +54,9 @@ class User extends Authenticatable
             'last_active_at' => 'datetime', // Cast this too
         ];
     }
+
+    public function sessions()
+    {
+        return $this->hasMany(Session::class);
+    }
 }

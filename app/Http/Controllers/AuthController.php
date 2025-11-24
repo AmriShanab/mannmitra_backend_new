@@ -22,27 +22,6 @@ class AuthController extends Controller
 
     public function guestLogin(GuestLoginRequest $request)
     {
-        try {
-            DB::beginTransaction();
-
-            
-            $result = $this->authService->handleAnonymousLogin($request->validated());
-
-            DB::commit();
-
-            return $this->successResponse([
-                'user' => new UserResource($result['user']),
-                'session' => [
-                    'id' => $result['current_session']->id,
-                    'type' => $result['current_session']->type,
-                    'created_at' => $result['current_session']->created_at,
-                ],
-                'token' => $result['token'],
-            ], 'Anonymous Session Started Successfully');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return $this->errorResponse($e->getMessage(), 500);
-        }
+        return $this->authService->handleAnonymousLogin($request->validated());
     }
 }
