@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
-use App\Interfaces\SessionRepositaryInterface;
-use App\Interfaces\UserRepositaryInterface;
-use App\Repositaries\SessionRepositary;
-use App\Repositaries\UserRepositary;
+use App\Interfaces\MoodRepositoryInterface;
+use App\Interfaces\SessionRepositoryInterface;
+use App\Interfaces\UserRepositoryInterface;
+use App\Repositories\MoodRepositary;
+use App\Repositories\SessionRepository;
+use App\Repositories\UserRepository;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -15,8 +17,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(UserRepositaryInterface::class, UserRepositary::class);
-        $this->app->bind(SessionRepositaryInterface::class, SessionRepositary::class);
+        $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
+        $this->app->bind(SessionRepositoryInterface::class, SessionRepository::class);
+        $this->app->bind(MoodRepositoryInterface::class, MoodRepositary::class);
     }
 
     /**

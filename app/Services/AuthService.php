@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Interfaces\SessionRepositaryInterface;
-use App\Interfaces\UserRepositaryInterface;
+use App\Interfaces\SessionRepositoryInterface;
+use App\Interfaces\UserRepositoryInterface;
 use App\Traits\ApiResponse;
 
 class AuthService
@@ -13,8 +13,8 @@ class AuthService
     protected $sessionRepositary;
 
     public function __construct(
-        UserRepositaryInterface $userRepositary,
-        SessionRepositaryInterface $sessionRepositary
+        UserRepositoryInterface $userRepositary,
+        SessionRepositoryInterface $sessionRepositary
     ) {
         $this->userRepositary = $userRepositary;
         $this->sessionRepositary = $sessionRepositary;
@@ -41,7 +41,7 @@ class AuthService
             return $this->successResponse([
                 'user' => $user,
                 'session' => $session,
-                'token' => $token,
+                'anonymous_token' => $token,
             ], 'Anonymous Session Started Successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);

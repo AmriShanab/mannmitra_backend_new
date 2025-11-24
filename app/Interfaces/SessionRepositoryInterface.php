@@ -2,7 +2,7 @@
 
 namespace App\Interfaces;
 
-interface SessionRepositaryInterface
+interface SessionRepositoryInterface
 {
     public function createSession(array $data);
 }

@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Repositaries;
+namespace App\Repositories;
 
 use App\Models\Session;
-use App\Interfaces\SessionRepositaryInterface;
+use App\Interfaces\SessionRepositoryInterface;
 
-class SessionRepositary implements SessionRepositaryInterface
+class SessionRepository implements SessionRepositoryInterface
 {
     public function createSession(array $data)
     {

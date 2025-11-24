@@ -2,7 +2,7 @@
 
 namespace App\Interfaces;
 
-interface UserRepositaryInterface
+interface UserRepositoryInterface
 {
     public function createAnonymousUser(array $data);
     public function findByFcmToken($fcmToken);

@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Repositaries;
+namespace App\Repositories;
 
 use App\Models\User;
-use App\Interfaces\UserRepositaryInterface;
+use App\Interfaces\UserRepositoryInterface;
 use Illuminate\Support\Str;
 
-class UserRepositary implements UserRepositaryInterface
+class UserRepository implements UserRepositoryInterface
 {
     public function createAnonymousUser(array $data)
     {
