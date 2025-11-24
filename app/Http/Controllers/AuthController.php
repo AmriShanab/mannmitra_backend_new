@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers; 
 
+use App\Http\Controllers\Controller;
+use App\Http\Requests\GuestLoginRequest; 
 use App\Http\Resources\UserResource;
 use App\Services\AuthService;
 use App\Traits\ApiResponse;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
@@ -19,18 +20,13 @@ class AuthController extends Controller
         $this->authService = $authService;
     }
 
-    public function guestLogin(Request $request)
+    public function guestLogin(GuestLoginRequest $request)
     {
-        $validated = $request->validate([
-            'fcm_token' => 'nullable|string',
-            'languageCode' => 'nullable|string|size:2',
-            'session_type' => 'nullable|in:text, voice, video',
-        ]);
-
         try {
             DB::beginTransaction();
 
-            $result = $this->authService->handleAnonymousLogin($validated);
+            
+            $result = $this->authService->handleAnonymousLogin($request->validated());
 
             DB::commit();
 
@@ -42,8 +38,8 @@ class AuthController extends Controller
                     'created_at' => $result['current_session']->created_at,
                 ],
                 'token' => $result['token'],
-                
-            ], 'Anonymous Session Start Successfully');
+            ], 'Anonymous Session Started Successfully');
+
         } catch (\Exception $e) {
             DB::rollBack();
             return $this->errorResponse($e->getMessage(), 500);
