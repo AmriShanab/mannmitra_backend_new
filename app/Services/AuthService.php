@@ -24,11 +24,12 @@ class AuthService
     {
         try {
             $user = null;
-            if (!empty($data['fcm_token'])) {
-                $user = $this->userRepositary->findByFcmToken($data['fcm_token']);
+            if (!empty($data['fcmToken'])) {
+                $user = $this->userRepositary->findByFcmToken($data['fcmToken']);
             }
 
             if (!$user) {
+                // dd($data);
                 $user = $this->userRepositary->createAnonymousUser($data);
             }
 

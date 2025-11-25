@@ -18,7 +18,7 @@ return new class extends Migration
             $table->uuid('anonymous_id')->unique()->after('id');
             $table->string('role')->default('anonymous');
             $table->string('language')->default('en');
-            $table->string('fcm_token')->nullable();
+            $table->string('fcmToken')->nullable();
             $table->timestamp('last_active_at')->nullable();
         });
     }

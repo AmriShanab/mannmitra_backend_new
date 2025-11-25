@@ -14,13 +14,13 @@ class UserRepository implements UserRepositoryInterface
             'name' => 'Guest-' . Str::random(5),
             'anonymous_id' => Str::uuid(),
             'role' => 'anonymous',
-            'fcm_token' => $data['fcm_token'] ?? null,
-            'language' => $data['language'] ?? 'en',
+            'fcmToken' => $data['fcmToken'] ?? null,
+            'language' => $data['languageCode'] ?? 'en',
         ]);
     }
     
     public function findByFcmToken($fcmToken)
     {
-        return User::where('fcm_token', $fcmToken)->first();
+        return User::where('fcmToken', $fcmToken)->first();
     }
 }

@@ -26,7 +26,7 @@ class GuestLoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'fcm_token' => 'nullable|string',
+            'fcmToken' => 'nullable|string',
             'languageCode' => 'nullable|string|size:2',
             'session_type' => ['nullable', 'in:text, voice, video'],
         ];

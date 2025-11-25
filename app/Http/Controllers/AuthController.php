@@ -22,6 +22,7 @@ class AuthController extends Controller
 
     public function guestLogin(GuestLoginRequest $request)
     {
+        // dd($request->validated());
         return $this->authService->handleAnonymousLogin($request->validated());
     }
 }
