@@ -7,7 +7,7 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
-class StoreMoodRequest extends FormRequest
+class JournalRequest extends FormRequest
 {
     use ApiResponse;
     /**
@@ -18,14 +18,6 @@ class StoreMoodRequest extends FormRequest
         return true;
     }
 
-    protected function prepareForValidation()
-    {
-        $this->merge([
-            'primary_mood' => $this->input('primary_food') ?? $this->input('mood'),
-            'secondary_tags' => $this->input('secondary_tags') ?? $this->input('detail_tags'),
-        ]);
-    }
-
     /**
      * Get the validation rules that apply to the request.
      *
@@ -34,10 +26,13 @@ class StoreMoodRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'primary_mood' => 'required|string|max:50',
-            'seconday_tags' => 'nullable|array',
-            'secondary_tags.*' => 'string|max:50',
-            'note' => 'nullable|string',
+            'title' => 'nullable|string|max:150',
+            'content' => 'required_without:audio_path|string',
+            'mood_snapshot' => 'nullable|string|max:50',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:30',
+            'audio_path' => 'nullable|string',
+            'audio_duration' => 'nullable|integer'
         ];
     }
 
