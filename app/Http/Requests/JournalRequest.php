@@ -18,6 +18,15 @@ class JournalRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation()
+    {
+        if ($this->has('mood')) {
+            $this->merge([
+                'mood_snapshot' => $this->input('mood')
+            ]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -28,11 +37,14 @@ class JournalRequest extends FormRequest
         return [
             'title' => 'nullable|string|max:150',
             'content' => 'required_without:audio_path|string',
-            'mood_snapshot' => 'nullable|string|max:50',
+            
+            // Validate the INTERNAL name (mood_snapshot)
+            'mood_snapshot' => 'nullable|string|max:50', 
+            
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:30',
-            'audio_path' => 'nullable|string',
-            'audio_duration' => 'nullable|integer'
+            'audio_path' => 'nullable|string', 
+            'audio_duration' => 'nullable|integer',
         ];
     }
 

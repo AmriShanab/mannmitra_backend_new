@@ -14,7 +14,7 @@ class JournalResource extends JsonResource
             'user_id' => $this->user_id,
             'title' => $this->title,
             'content' => $this->content,
-            'mood_snapshot' => $this->moodSnapshot,
+            'mood' => $this->mood_snapshot,
             'tags' => $this->tags ?? [],
             'ai_reflection' => $this->ai_reflection,
             'has_audio' => !empty($this->audio_path),

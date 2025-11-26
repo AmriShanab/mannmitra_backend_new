@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\JournalController;
 use App\Http\Controllers\MoodController;
 use Illuminate\Http\Request;
@@ -26,5 +27,11 @@ Route::prefix('v1')->group(function () {
 
         // Journal 
         Route::apiResource('journal', JournalController::class);
+
+        // Chat
+        Route::controller(ChatController::class)->prefix('chat')->group(function() {
+            Route::post('/send', 'sendMessage');
+            Route::get('/history', 'history');
+        });
     });
 });

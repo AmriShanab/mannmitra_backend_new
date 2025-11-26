@@ -20,6 +20,7 @@ class JournalController extends Controller
 
     public function store(JournalRequest $request)
     {
+        
         $entry = $this->journalService->createJournal(
             $request->user()->id,
             $request->validated()

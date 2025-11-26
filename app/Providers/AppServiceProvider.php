@@ -3,10 +3,12 @@
 namespace App\Providers;
 
 use App\Interfaces\JournalRepositoryInterface;
+use App\Interfaces\MessageRepositoryInterface;
 use App\Interfaces\MoodRepositoryInterface;
 use App\Interfaces\SessionRepositoryInterface;
 use App\Interfaces\UserRepositoryInterface;
 use App\Repositories\JournalRepository;
+use App\Repositories\MessageRepository;
 use App\Repositories\MoodRepositary;
 use App\Repositories\SessionRepository;
 use App\Repositories\UserRepository;
@@ -23,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(SessionRepositoryInterface::class, SessionRepository::class);
         $this->app->bind(MoodRepositoryInterface::class, MoodRepositary::class);
         $this->app->bind(JournalRepositoryInterface::class, JournalRepository::class);
+        $this->app->bind(MessageRepositoryInterface::class, MessageRepository::class);
     }
 
     /**

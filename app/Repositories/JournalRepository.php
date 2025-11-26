@@ -8,7 +8,7 @@ use App\Models\JournalEntry;
 class JournalRepository implements JournalRepositoryInterface
 {
     public function createEntry($userId, array $data)
-    {
+    {        
         return JournalEntry::create(array_merge($data, ['user_id' => $userId]));
     }
 
