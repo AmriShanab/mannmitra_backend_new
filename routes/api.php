@@ -18,9 +18,10 @@ Route::prefix('v1')->group(function () {
         // MOOD TRACKING ROUTES
         Route::prefix('mood')->controller(MoodController::class)->group(function() {
             Route::post('/log', 'store');
-            Route::get('/weekly-summary', 'index');
+            Route::get('/history', 'index');
             Route::get('/check-required', 'checkRequired');
             Route::get('/daily-summary', 'dailySummary');
+            Route::get('/weekly-summary', 'weeklySummary');
         });
 
         // Journal 

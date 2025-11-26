@@ -8,4 +8,5 @@ interface MoodRepositoryInterface
     public function getRecentEntries($userId, $limit = 20);
     public function hasEntryToday($userId);
     public function getEntriesByDateRange($userId, $startDate, $endDate);
+    public function getEntriesSince($userId, $date);
 }
