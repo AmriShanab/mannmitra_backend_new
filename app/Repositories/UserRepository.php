@@ -23,4 +23,13 @@ class UserRepository implements UserRepositoryInterface
     {
         return User::where('fcmToken', $fcmToken)->first();
     }
+
+    public function updateLanguage($userId, $languageCode)
+    {
+        $user = User::findOrFail($userId);
+        $user->language = $languageCode;
+        $user->save();
+
+        return $user;
+    }
 }

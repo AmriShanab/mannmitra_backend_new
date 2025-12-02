@@ -12,7 +12,7 @@ class UserResource extends JsonResource
         return [
             'anonymous_id' => $this->anonymous_id, // [cite: 109]
             'role' => $this->role,
-            'language' => $this->language,
+            'languageCode' => $this->language,
             'joined_at' => $this->created_at->format('Y-m-d H:i:s'),
         ];
     }

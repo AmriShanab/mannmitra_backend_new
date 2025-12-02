@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\JournalController;
 use App\Http\Controllers\MoodController;
+use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -11,9 +12,10 @@ Route::prefix('v1')->group(function () {
 
     Route::post('/sessions/start', [AuthController::class, 'guestLogin']);
 
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/user', function (\Illuminate\Http\Request $request) {
-            return $request->user();
+    Route::middleware('auth:sanctum')->prefix('user')->group(function () {
+        Route::controller(UserController::class)->group(function() {
+            Route::get('/', 'me');
+            Route::put('/language', 'updateLanguage');
         });
 
         // MOOD TRACKING ROUTES
