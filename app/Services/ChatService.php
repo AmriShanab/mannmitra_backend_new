@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Interfaces\MessageRepositoryInterface;
+use App\Models\Session;
 use Illuminate\Support\Facades\Storage;
 
 class ChatService
@@ -26,16 +27,10 @@ class ChatService
 
         if ($audioFile) {
             $inputType = 'audio';
-            
-            // 1. Save the file first
             $path = $audioFile->store('voice_messages', 'public');
             $userAudioPath = $path;
-            
-            // 2. Get the ABSOLUTE path of the saved file
-            // (OpenAI needs a real file path on your server, not a relative URL)
             $absolutePath = Storage::disk('public')->path($path);
-            
-            // 3. Pass the absolute path string, not the file object
+        
             $finalContent = $this->aiService->transcribe($absolutePath);
         }
 
@@ -81,5 +76,39 @@ class ChatService
     public function getMessages($sessionId)
     {
         return $this->messageRepo->getConversationHistory($sessionId, 50);
+    }
+
+    public function getUserSession($userId)
+    {
+        $session = Session::where('user_id', $userId)
+        ->where('status', 'active')
+        ->latest()
+        ->first();
+
+        if(!$session) {
+            $session = Session::create([
+                'user_id' => $userId,
+                'status' => 'active',
+            ]);
+
+        }
+
+        return $session;
+    }
+
+    public function handleUserMessageForUser($userId, $userText = null, $audioFile = null)
+    {
+        $session = $this->getUserSession($userId);
+        return $this->handleUserMessage(
+            $session->id, 
+            $userText, 
+            $audioFile
+        );
+    }
+
+    public function getHistoryWithLimit($userId, $limit = 50)
+    {
+        $session = $this->getUserSession($userId);
+        return $this->messageRepo->getConversationHistory($session->id, $limit);
     }
 }

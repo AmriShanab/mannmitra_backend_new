@@ -29,9 +29,9 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('journal', JournalController::class);
 
         // Chat
-        Route::controller(ChatController::class)->prefix('chat')->group(function() {
-            Route::post('/send', 'sendMessage');
-            Route::get('/history', 'history');
+        Route::controller(ChatController::class)->group(function() {
+            Route::post('/chat', 'sendMessage');
+            Route::get('/chat', 'history');
         });
     });
 });
