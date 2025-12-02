@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Interfaces\MessageRepositoryInterface;
+use Illuminate\Support\Facades\Storage;
 
 class ChatService
 {
@@ -17,33 +18,60 @@ class ChatService
         $this->aiService = $aiService;
     }
 
-    public function handleUserMessage($sessionId, $userText)
+    public function handleUserMessage($sessionId, $userText = null, $audioFile = null)
     {
+        $inputType = 'text';
+        $userAudioPath = null;
+        $finalContent = $userText;
+
+        if ($audioFile) {
+            $inputType = 'audio';
+            
+            // 1. Save the file first
+            $path = $audioFile->store('voice_messages', 'public');
+            $userAudioPath = $path;
+            
+            // 2. Get the ABSOLUTE path of the saved file
+            // (OpenAI needs a real file path on your server, not a relative URL)
+            $absolutePath = Storage::disk('public')->path($path);
+            
+            // 3. Pass the absolute path string, not the file object
+            $finalContent = $this->aiService->transcribe($absolutePath);
+        }
+
+        
         $this->messageRepo->createMessage([
             'session_id' => $sessionId,
             'sender' => 'user',
-            'type' => 'text',
-            'content' => $userText
+            'type' => $inputType,
+            'content' => $finalContent, 
+            'audio_path' => $userAudioPath,
         ]);
 
         $dbHistory = $this->messageRepo->getConversationHistory($sessionId);
-
-        $formattedHistory = [];
-
-        $formattedHistory[] = ['role' => 'system', 'content' => $this->systemPrompt];
+        $formattedHistory = [['role' => 'system', 'content' => $this->systemPrompt]];
 
         foreach ($dbHistory as $msg) {
-            $role = ($msg->sender === 'user') ? 'user' : 'assistant';
-            $formattedHistory[] = ['role' => $role, 'content' => $msg->content];
+            $formattedHistory[] = [
+                'role' => ($msg->sender === 'user') ? 'user' : 'assistant',
+                'content' => $msg->content
+            ];
         }
 
-        $aiResponseText = $this->aiService->generateChatResponse($formattedHistory);
+        $aiText = $this->aiService->generateChatResponse($formattedHistory);
+
+        $aiAudioPath = null;
+
+        if ($inputType === 'audio') {
+            $aiAudioPath = $this->aiService->speak($aiText);
+        }
 
         $aiMessage = $this->messageRepo->createMessage([
             'session_id' => $sessionId,
             'sender' => 'ai',
-            'type' => 'text',
-            'content' => $aiResponseText,
+            'type' => $inputType, 
+            'content' => $aiText,
+            'audio_path' => $aiAudioPath,
         ]);
 
         return $aiMessage;

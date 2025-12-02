@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
@@ -9,7 +10,7 @@ use Illuminate\Http\Request;
 class ChatController extends Controller
 {
     use ApiResponse;
-    
+
     protected $chatService;
 
     public function __construct(ChatService $chatService)
@@ -20,21 +21,27 @@ class ChatController extends Controller
     public function sendMessage(Request $request)
     {
         $request->validate([
-            'session_id' => 'required|exists:session,id',
-            'message' => 'required|string',
+            'session_id' => 'required|exists:session,id', 
+            'message' => 'nullable|string', 
+            'audio' => 'nullable|file|mimes:mp3,wav,m4a,mp4,ogg|max:10240', 
         ]);
 
-        // TODO: Security Check - Ensure auth user owns this session
-        // $user = $request->user();
-        
+        if (!$request->message && !$request->hasFile('audio')) {
+            return $this->errorResponse('Please provide a message or audio file.', 422);
+        }
+
         try {
             $response = $this->chatService->handleUserMessage(
                 $request->session_id,
-                $request->message
+                $request->message,
+                $request->file('audio') 
             );
 
-            return $this->successResponse($response, 'Message sent successfully');
+            if ($response->audio_path) {
+                $response->audio_url = asset('storage/' . $response->audio_path);
+            }
 
+            return $this->successResponse($response, 'Message processed successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
