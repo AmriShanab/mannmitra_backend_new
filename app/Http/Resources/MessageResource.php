@@ -18,7 +18,9 @@ class MessageResource extends JsonResource
             'id' => $this->id,
             'text' => $this->content ?? '[Audio Message]',
             'sender' => $this->sender === 'ai' ? 'bot' : 'user',
-            'created_at' => $this->created_at->toIso8601String(),
+            'created_at' => $this->created_at
+                        ->setTimezone('Asia/Colombo')
+                        ->format('Y-m-d H:i:s'),
             'audio_url' => $this->audio_path ? asset('storage/' . $this->audio_path) : null,
         ];
     }
