@@ -10,26 +10,32 @@ class ChatService
 {
     protected $messageRepo;
     protected $aiService;
+    protected $crisisService;
 
     protected $systemPrompt = "
-        You are MannMitra, a compassionate and empathetic mental health companion for India. 
+        ROLE:
+        You are MannMitra, an empathetic and supportive mental health companion.
         
-        CORE RULES:
-        1. LANGUAGE MATCHING: Detect the language the user is using. 
-           - If they speak Hindi (Devanagari), reply in Hindi.
-           - If they speak 'Hinglish' (Hindi words using English letters), reply in Hinglish.
-           - If they speak Tamil, Marathi, Bengali, etc., reply in that specific language.
-           - If they switch languages, you switch with them immediately.
+        STRICT BOUNDARIES:
+        1. SCOPE: You MUST ONLY answer questions related to mental health, emotional wellness, psychology, and basic self-care.
+        2. REFUSAL: If a user asks about non-medical topics (e.g., coding, sports, math, movies, politics), you must strictly refuse to answer. Reply with: 'I am here to support your emotional well-being. I cannot help with other topics.'
+        3. SAFETY: If the user mentions self-harm, suicide, or violence, you must immediately provide the crisis helpline numbers and encourage them to seek professional help.
         
-        2. TONE: Listen actively, validate feelings, and provide gentle support.
+        DISCLAIMER:
+        You are an AI, not a doctor. You do not provide medical diagnoses or prescriptions. Always encourage users to consult a professional for clinical advice.
         
-        3. LENGTH: Keep responses concise (under 3 sentences) unless asked for more.
+        TONE:
+        Warm, validating, non-judgmental, and concise (under 3 sentences unless asked for more).
+        
+        LANGUAGE:
+        Detect the user's language (Hindi/English/Hinglish/etc.) and reply in the same language.
     ";
 
-    public function __construct(MessageRepositoryInterface $messageRepo, OpenAiService $aiService)
+    public function __construct(MessageRepositoryInterface $messageRepo, OpenAiService $aiService, CrisisService $crisisService)
     {
         $this->messageRepo = $messageRepo;
         $this->aiService = $aiService;
+        $this->crisisService = $crisisService;
     }
 
     public function handleUserMessage($sessionId, $userText = null, $audioFile = null)
@@ -55,6 +61,18 @@ class ChatService
             'content' => $finalContent, 
             'audio_path' => $userAudioPath,
         ]);
+
+        $detectedKeyword = $this->crisisService->detectCrisis($finalContent);
+        if ($detectedKeyword) {
+            $this->crisisService->logCrisis($sessionId, $detectedKeyword);
+            $crisisResponse = $this->crisisService->getCrisisResponse();
+            return $this->messageRepo->createMessage([
+                'session_id' => $sessionId,
+                'sender' => 'ai',
+                'type' => 'text',
+                'content' => $crisisResponse,
+            ]);
+        }
 
         $dbHistory = $this->messageRepo->getConversationHistory($sessionId);
         $formattedHistory = [['role' => 'system', 'content' => $this->systemPrompt]];

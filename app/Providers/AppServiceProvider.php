@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Repositories\CrisisAlertRepository;
+use App\Interfaces\CrisisRepositoryInterface;
 use App\Interfaces\JournalRepositoryInterface;
 use App\Interfaces\MessageRepositoryInterface;
 use App\Interfaces\MoodRepositoryInterface;
@@ -26,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(MoodRepositoryInterface::class, MoodRepositary::class);
         $this->app->bind(JournalRepositoryInterface::class, JournalRepository::class);
         $this->app->bind(MessageRepositoryInterface::class, MessageRepository::class);
+        $this->app->bind(CrisisRepositoryInterface::class, CrisisAlertRepository::class);
     }
 
     /**
