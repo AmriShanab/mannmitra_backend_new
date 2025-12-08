@@ -4,13 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\GuestLoginRequest; 
-use App\Http\Resources\UserResource;
-use App\Models\User;
 use App\Services\AuthService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-// use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
@@ -23,30 +20,66 @@ class AuthController extends Controller
         $this->authService = $authService;
     }
 
+    // --- FLUTTER APP LOGIN (Keep as is) ---
     public function guestLogin(GuestLoginRequest $request)
     {
-        // dd($request->validated());
         return $this->authService->handleAnonymousLogin($request->validated());
     }
 
+    // --- ADMIN WEB LOGIN START ---
+
+    public function showLoginForm()
+    {
+        // If already logged in as admin, go straight to dashboard
+        if (Auth::check() && Auth::user()->role === 'admin') {
+            return redirect()->route('admin.dashboard');
+        }
+        
+        return view('admin.auth.login');
+    }
+
+    // UPDATED: This now handles Browser Login (Session) instead of API Token
     public function login(Request $request)
     {
-        $validated = $request->validate([
+        // 1. Validate Input
+        $credentials = $request->validate([
             'email' => 'required|email',
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $validated['email'])->first();
+        // 2. Attempt Login using Laravel Session Auth
+        // 'remember' checks the checkbox input if present
+        $remember = $request->has('remember');
 
-        if (! $user || ! Hash::check($validated['password'], $user->password)) {
-            return $this->errorResponse('Invalid credentials', 401);
+        if (Auth::attempt($credentials, $remember)) {
+            $request->session()->regenerate();
+            
+            $user = Auth::user();
+
+            // 3. Security Check: Is this an Admin?
+            if ($user->role === 'admin') {
+                return redirect()->route('admin.dashboard');
+            }
+
+            // If user logged in but is NOT admin (e.g. a Listener trying to hack in)
+            Auth::logout();
+            return back()->withErrors([
+                'email' => 'Access denied. You are not an Admin.',
+            ]);
         }
 
-        $token = $user->createToken('auth_token', [$user->role])->plainTextToken;
+        // 4. Failed Login
+        return back()->withErrors([
+            'email' => 'The provided credentials do not match our records.',
+        ])->onlyInput('email');
+    }
 
-        return $this->successResponse([
-            'user' => new \App\Http\Resources\UserResource($user),
-            'token' => $token
-        ], 'Login successful');
+    public function logout(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('admin.login');
     }
 }

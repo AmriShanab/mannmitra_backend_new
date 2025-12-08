@@ -347,6 +347,13 @@ return [
             'label'       => 'High', // Adds a badge
             'label_color' => 'danger',
         ],
+
+        [
+            'text'    => 'Logout',
+            'icon'    => 'fas fa-fw fa-sign-out-alt',
+            'url'     => '#',
+            'onclick' => "event.preventDefault(); document.getElementById('logout-form').submit();",
+        ],
     ],
 
     /*
