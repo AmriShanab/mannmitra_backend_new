@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Interfaces\AdminRepositoryInterface;
 use App\Repositories\CrisisAlertRepository;
 use App\Interfaces\CrisisRepositoryInterface;
 use App\Interfaces\JournalRepositoryInterface;
@@ -9,11 +10,14 @@ use App\Interfaces\MessageRepositoryInterface;
 use App\Interfaces\MoodRepositoryInterface;
 use App\Interfaces\SessionRepositoryInterface;
 use App\Interfaces\UserRepositoryInterface;
+use App\Models\User;
+use App\Repositories\AdminRepository;
 use App\Repositories\JournalRepository;
 use App\Repositories\MessageRepository;
 use App\Repositories\MoodRepositary;
 use App\Repositories\SessionRepository;
 use App\Repositories\UserRepository;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -29,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(JournalRepositoryInterface::class, JournalRepository::class);
         $this->app->bind(MessageRepositoryInterface::class, MessageRepository::class);
         $this->app->bind(CrisisRepositoryInterface::class, CrisisAlertRepository::class);
+        $this->app->bind(AdminRepositoryInterface::class, AdminRepository::class);
     }
 
     /**
@@ -36,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // 2. Define the "admin-access" rule
+        Gate::define('admin-access', function (User $user) {
+            return $user->role === 'admin';
+        });
     }
 }

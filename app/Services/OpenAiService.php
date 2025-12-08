@@ -23,7 +23,6 @@ class OpenAiService
     {
         $response = OpenAI::audio()->transcribe([
             'model' => 'whisper-1',
-            // Now we just open the path string we passed
             'file' => fopen($filePath, 'r'), 
             'response_format' => 'verbose_json',
         ]);
