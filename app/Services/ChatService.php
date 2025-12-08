@@ -38,44 +38,72 @@ class ChatService
         $this->crisisService = $crisisService;
     }
 
-    public function handleUserMessage($sessionId, $userText = null, $audioFile = null)
+    public function handleUserMessage($sessionId, $userText = null, $audioFile = null, $userLang = 'en')
     {
         $inputType = 'text';
         $userAudioPath = null;
         $finalContent = $userText;
 
+        // --- 1. HANDLE VOICE INPUT (WHISPER) ---
         if ($audioFile) {
             $inputType = 'audio';
             $path = $audioFile->store('voice_messages', 'public');
             $userAudioPath = $path;
+            
+            // Get absolute path for OpenAI
             $absolutePath = Storage::disk('public')->path($path);
-        
+            
+            // Transcribe using Whisper
             $finalContent = $this->aiService->transcribe($absolutePath);
         }
 
-        
-        $this->messageRepo->createMessage([
+        // --- 2. SAVE USER MESSAGE ---
+        $userMessage = $this->messageRepo->createMessage([
             'session_id' => $sessionId,
             'sender' => 'user',
             'type' => $inputType,
-            'content' => $finalContent, 
+            'content' => $finalContent, // Stores the TRANSCRIPT or Text
             'audio_path' => $userAudioPath,
+            'is_crisis' => false,
         ]);
 
+        // --- 3. CHECK FOR HUMAN LISTENER HANDOVER ---
+        // If a human is assigned, we STOP here. The AI should not reply.
+        $session = Session::find($sessionId);
+        
+        if ($session && $session->active_listener_id) {
+            // Logic: User message is saved. Human listener sees it in dashboard.
+            // We return the user message so frontend knows it was sent.
+            return $userMessage;
+        }
+
+        // --- 4. CRISIS DETECTION ---
         $detectedKeyword = $this->crisisService->detectCrisis($finalContent);
+        
         if ($detectedKeyword) {
+            // A. Log the Alert to Admin Dashboard
             $this->crisisService->logCrisis($sessionId, $detectedKeyword);
+            
+            // B. Get Standard Helpline Text
             $crisisResponse = $this->crisisService->getCrisisResponse();
+            
+            // C. Save AI Message with IS_CRISIS = TRUE (Triggers Red Alert on Frontend)
             return $this->messageRepo->createMessage([
                 'session_id' => $sessionId,
                 'sender' => 'ai',
                 'type' => 'text',
                 'content' => $crisisResponse,
+                'is_crisis' => true, 
             ]);
         }
 
+        // --- 5. PREPARE AI CONTEXT (MULTILINGUAL) ---
         $dbHistory = $this->messageRepo->getConversationHistory($sessionId);
-        $formattedHistory = [['role' => 'system', 'content' => $this->systemPrompt]];
+        
+        // Dynamic Prompt with Language Instruction
+        $dynamicPrompt = $this->systemPrompt . " [IMPORTANT: The user's preferred language is '{$userLang}'. Detect if they speak a different language and adapt, but default to '{$userLang}'.]";
+        
+        $formattedHistory = [['role' => 'system', 'content' => $dynamicPrompt]];
 
         foreach ($dbHistory as $msg) {
             $formattedHistory[] = [
@@ -84,20 +112,25 @@ class ChatService
             ];
         }
 
+        // --- 6. GET AI TEXT RESPONSE ---
         $aiText = $this->aiService->generateChatResponse($formattedHistory);
 
+        // --- 7. HANDLE AI VOICE OUTPUT (TTS) ---
         $aiAudioPath = null;
-
+        
+        // Only speak back if the user spoke to us first
         if ($inputType === 'audio') {
             $aiAudioPath = $this->aiService->speak($aiText);
         }
 
+        // --- 8. SAVE AI MESSAGE ---
         $aiMessage = $this->messageRepo->createMessage([
             'session_id' => $sessionId,
             'sender' => 'ai',
             'type' => $inputType, 
             'content' => $aiText,
             'audio_path' => $aiAudioPath,
+            'is_crisis' => false,
         ]);
 
         return $aiMessage;
