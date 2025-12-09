@@ -14,9 +14,11 @@ class OpenAiService
             'model' =>'gpt-4o-mini',
             'messages' => $formattedHistory,
             'temperature' => 0.3,
+            'response_format' => ['type' => 'json_object'],
         ]);
 
-        return $response->choices[0]->message->content;
+        $content = $response->choices[0]->message->content;
+        return json_decode($content, true);
     }
 
     public function transcribe($filePath)
@@ -44,5 +46,31 @@ class OpenAiService
         Storage::disk('public')->put($filePath, $response);
 
         return $filePath;
+    }
+
+    public function analyze($text, $type = 'daily')
+    {
+        $systemPrompt = "You are an empathetic mental health journaling assistant.";
+        
+        if ($type === 'weekly') {
+            $systemPrompt .= " The user has provided their journal entries for the last 7 days. 
+            Your task:
+            1. Identify the main emotional themes of the week.
+            2. Highlight any positive moments or progress.
+            3. Provide a gentle, 3-sentence reflection on their week.";
+        } else {
+            $systemPrompt .= " Analyze this journal entry and provide a short, supportive reflection.";
+        }
+
+        $response = OpenAI::chat()->create([
+            'model' => 'gpt-4o',
+            'messages' => [
+                ['role' => 'system', 'content' => $systemPrompt],
+                ['role' => 'user', 'content' => $text],
+            ],
+            'temperature' => 0.5,
+        ]);
+
+        return $response->choices[0]->message->content;
     }
 }

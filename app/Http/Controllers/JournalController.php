@@ -47,4 +47,14 @@ class JournalController extends Controller
         $this->journalService->removeEntry($request->user()->id, $id);
         return $this->successResponse(null, 'Journal Entry Deleted');
     }
+
+    public function generateWeeklyReflection(Request $request)
+    {
+        try {
+            $data = $this->journalService->generateWeeklyReflection($request->user()->id);
+            return $this->successResponse($data, 'Weekly Reflection Generated');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 400);
+        }
+    }
 }

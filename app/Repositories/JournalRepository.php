@@ -31,4 +31,21 @@ class JournalRepository implements JournalRepositoryInterface
         $entry = $this->getEntryById($userId, $entryId);
         $entry->delete();
     }
+
+    public function getEntriesFromDateRange($userId, $startDate, $endDate)
+    {
+        return JournalEntry::where('user_id'. $userId)
+        ->whereBetween('created_at', [$startDate, $endDate])
+        ->orderBy('created_at', 'asc')
+        ->get(['content', 'created_at']);
+    }
+
+    
+    public function updateReflection($entryId, $text)
+    {
+        $entry = JournalEntry::findOrFail($entryId);
+        $entry->ai_reflection = $text;
+        $entry->save();
+        return $entry;
+    }
 }

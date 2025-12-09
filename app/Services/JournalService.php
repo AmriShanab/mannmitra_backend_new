@@ -4,31 +4,54 @@ namespace App\Services;
 
 use App\Interfaces\JournalRepositoryInterface;
 use Illuminate\Support\Facades\DB;
-
-use function Symfony\Component\Clock\now;
+use Carbon\Carbon;
 
 class JournalService
 {
     protected $journalRepo;
+    protected $aiService;
 
-    public function __construct(JournalRepositoryInterface $journalRepo)
+    public function __construct(JournalRepositoryInterface $journalRepo, OpenAiService $aiService)
     {
         $this->journalRepo = $journalRepo;
+        $this->aiService = $aiService;
     }
 
     public function createJournal($userId, array $validatedData)
     {
-        return DB::transaction(function () use ($userId, $validatedData) {
-            if(empty($validatedData['title'])) {
-                $validatedData['title'] = 'Entry For '. now()->format('M d, Y');
-            }
+        if(empty($validatedData['title'])) {
+            $validatedData['title'] = 'Entry For '. now()->format('M d, Y');
+        }
+        
+        return $this->journalRepo->createEntry($userId, $validatedData);
+    }
 
-            // 2. Future Integration Point: 
-            // Here you would call AI Service to generate 'ai_reflection' based on 'content'
-            // $validatedData['ai_reflection'] = $this->aiService->analyze($validatedData['content']);
+    public function generateWeeklyReflection($userId)
+    {
+        $endDate = now();
+        $startDate = now()->subDays(6)->startOfDay();
 
-            return $this->journalRepo->createEntry($userId, $validatedData);
-        });
+        $entries = $this->journalRepo->getEntriesFromDateRange($userId, $startDate, $endDate);
+
+        if ($entries->isEmpty()) {
+            throw new \Exception("No journal entries found for this week to analyze.");
+        }
+
+        $weeklyContent = "Here is the user's journal for the last 7 days:\n";
+        foreach ($entries as $entry) {
+            $date = $entry->created_at->format('l (M d)'); 
+            $weeklyContent .= "- {$date}: {$entry->content}\n";
+        }
+
+        $reflection = $this->aiService->analyze($weeklyContent, 'weekly');
+
+        $latestEntry = $entries->last(); 
+        $this->journalRepo->updateReflection($latestEntry->id, $reflection);
+
+        return [
+            'reflection' => $reflection,
+            'linked_entry_id' => $latestEntry->id
+        ];
     }
 
     public function getHistory($userId)

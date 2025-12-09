@@ -31,8 +31,10 @@ Route::prefix('v1')->group(function () {
             Route::get('/weekly-summary', 'weeklySummary');
         });
 
-        // Journal 
+        // Journal
+        Route::post('journal/reflection', [JournalController::class, 'generateReflection']); 
         Route::apiResource('journal', JournalController::class);
+
 
         // Chat
         Route::controller(ChatController::class)->group(function () {

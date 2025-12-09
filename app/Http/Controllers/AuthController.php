@@ -20,7 +20,6 @@ class AuthController extends Controller
         $this->authService = $authService;
     }
 
-    // --- FLUTTER APP LOGIN (Keep as is) ---
     public function guestLogin(GuestLoginRequest $request)
     {
         return $this->authService->handleAnonymousLogin($request->validated());
@@ -30,7 +29,6 @@ class AuthController extends Controller
 
     public function showLoginForm()
     {
-        // If already logged in as admin, go straight to dashboard
         if (Auth::check() && Auth::user()->role === 'admin') {
             return redirect()->route('admin.dashboard');
         }
@@ -38,17 +36,13 @@ class AuthController extends Controller
         return view('admin.auth.login');
     }
 
-    // UPDATED: This now handles Browser Login (Session) instead of API Token
     public function login(Request $request)
     {
-        // 1. Validate Input
         $credentials = $request->validate([
             'email' => 'required|email',
             'password' => 'required',
         ]);
 
-        // 2. Attempt Login using Laravel Session Auth
-        // 'remember' checks the checkbox input if present
         $remember = $request->has('remember');
 
         if (Auth::attempt($credentials, $remember)) {
@@ -56,19 +50,16 @@ class AuthController extends Controller
             
             $user = Auth::user();
 
-            // 3. Security Check: Is this an Admin?
             if ($user->role === 'admin') {
                 return redirect()->route('admin.dashboard');
             }
 
-            // If user logged in but is NOT admin (e.g. a Listener trying to hack in)
             Auth::logout();
             return back()->withErrors([
                 'email' => 'Access denied. You are not an Admin.',
             ]);
         }
 
-        // 4. Failed Login
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',
         ])->onlyInput('email');
