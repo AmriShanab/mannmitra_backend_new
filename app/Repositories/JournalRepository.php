@@ -34,7 +34,7 @@ class JournalRepository implements JournalRepositoryInterface
 
     public function getEntriesFromDateRange($userId, $startDate, $endDate)
     {
-        return JournalEntry::where('user_id'. $userId)
+        return JournalEntry::where('user_id', $userId)
         ->whereBetween('created_at', [$startDate, $endDate])
         ->orderBy('created_at', 'asc')
         ->get(['content', 'created_at']);
