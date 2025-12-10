@@ -41,11 +41,15 @@ class JournalRepository implements JournalRepositoryInterface
     }
 
     
-    public function updateReflection($entryId, $text)
-    {
-        $entry = JournalEntry::findOrFail($entryId);
-        $entry->ai_reflection = $text;
-        $entry->save();
-        return $entry;
-    }
+    public function updateReflection($entryId, $reflection)
+{
+    // Find the specific journal entry by its unique ID
+    $entry = JournalEntry::findOrFail($entryId);
+
+    // Update the column
+    $entry->ai_reflection = $reflection;
+    $entry->save();
+
+    return $entry;
+}
 }

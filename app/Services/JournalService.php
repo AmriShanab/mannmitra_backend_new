@@ -29,7 +29,7 @@ class JournalService
     public function generateWeeklyReflection($userId)
     {
         $endDate = now();
-        $startDate = now()->subDays(6)->startOfDay();
+        $startDate = now()->subDays(30)->startOfDay();
 
         $entries = $this->journalRepo->getEntriesFromDateRange($userId, $startDate, $endDate);
 
