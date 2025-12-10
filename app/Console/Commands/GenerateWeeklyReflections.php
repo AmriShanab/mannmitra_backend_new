@@ -25,37 +25,49 @@ class GenerateWeeklyReflections extends Command
     protected $journalService;
     protected $notificationService;
 
+    // --- FIXED CONSTRUCTOR ---
     public function __construct(JournalService $journalService, NotificationService $notificationService)
     {
-        return parent::__construct();
+        parent::__construct(); // Removed 'return'
         $this->journalService = $journalService;
         $this->notificationService = $notificationService;
     }
+
     /**
      * Execute the console command.
      */
     public function handle()
     {
         $this->info('Starting weekly reflection generation...');
+        
         User::chunk(100, function ($users) {
-            $this->info('Found ' . $users->count() . ' users to process.'); // <--- Add this
+            $this->info('Found ' . $users->count() . ' users to process.'); 
+            
             foreach ($users as $key => $user) {
                 $this->info('Processing user: ' . $user->id);
+                
                 try {
                     $result = $this->journalService->generateWeeklyReflection($user->id);
+                    
                     if($result){
-                        $this->info("Generated reflection for User ID: {$user->id}");
+                        $this->info("SUCCESS: Generated reflection for User ID: {$user->id}");
+                        
                         if($user->fcmToken){
                             $this->notificationService->sendToUser(
-                            $user->fcmToken, 
-                            'Weekly Insight Ready', 
-                            "Your AI reflection for this week is now available in your journal.",
-                            ['screen' => 'journal_view', 'entry_id' => $result['linked_entry_id']]
+                                $user->fcmToken, 
+                                'Weekly Insight Ready', 
+                                "Your AI reflection for this week is now available in your journal.",
+                                ['screen' => 'journal_view', 'entry_id' => $result['linked_entry_id']]
                             );
                         }
+                    } else {
+                        // Helpful message if service returns false (e.g. no entries found for week)
+                        $this->warn("Skipped User ID: {$user->id} (No data or criteria not met)");
                     }
                 } catch (\Throwable $th) {
-                    //throw $th;
+                    // --- FIXED ERROR LOGGING ---
+                    // This will print the actual error if something goes wrong
+                    $this->error("Error for User {$user->id}: " . $th->getMessage());
                 }
             }
         });
