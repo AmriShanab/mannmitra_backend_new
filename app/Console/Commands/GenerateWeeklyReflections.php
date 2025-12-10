@@ -38,7 +38,9 @@ class GenerateWeeklyReflections extends Command
     {
         $this->info('Starting weekly reflection generation...');
         User::chunk(100, function ($users) {
+            $this->info('Found ' . $users->count() . ' users to process.'); // <--- Add this
             foreach ($users as $key => $user) {
+                $this->info('Processing user: ' . $user->id);
                 try {
                     $result = $this->journalService->generateWeeklyReflection($user->id);
                     if($result){
