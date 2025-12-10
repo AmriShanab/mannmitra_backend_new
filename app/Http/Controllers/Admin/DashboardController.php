@@ -31,12 +31,10 @@ class DashboardController extends Controller
 
     public function getChatHistory($sessionId)
     {
-        // Fetch the messages cleanly
-        $messages = \App\Models\Message::where('session_id', $sessionId)
-            ->orderBy('created_at', 'asc') // Oldest first
-            ->get(['sender', 'content', 'created_at']); // Select only what we need
+        $messages = Message::where('session_id', $sessionId)
+            ->orderBy('created_at', 'asc') 
+            ->get(['sender', 'content', 'created_at']);
 
-        // Return standard JSON list
         return response()->json($messages);
     }
 
