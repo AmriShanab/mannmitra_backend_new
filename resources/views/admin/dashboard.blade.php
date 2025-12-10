@@ -3,6 +3,7 @@
 @section('title', 'MannMitra Dashboard')
 
 @section('content_header')
+<meta http-equiv="refresh" content="60">
     <h1>Crisis Command Center</h1>
 @stop
 

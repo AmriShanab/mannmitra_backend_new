@@ -7,6 +7,7 @@ use App\Models\CrisisAlert;
 use App\Models\Message;
 use App\Services\AdminService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -30,9 +31,13 @@ class DashboardController extends Controller
 
     public function getChatHistory($sessionId)
     {
-        $messages = Message::where('session_id', $sessionId)
-        ->orderBy('created_at', 'asc')
-        ->get(['sender', 'content', 'created_at']);
+        // Fetch the messages cleanly
+        $messages = \App\Models\Message::where('session_id', $sessionId)
+            ->orderBy('created_at', 'asc') // Oldest first
+            ->get(['sender', 'content', 'created_at']); // Select only what we need
+
+        // Return standard JSON list
+        return response()->json($messages);
     }
 
     public function resolveAlert($alertId)
@@ -42,5 +47,4 @@ class DashboardController extends Controller
 
         return response()->json(['success' => true]);
     }
-
 }
