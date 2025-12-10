@@ -1,9 +1,9 @@
 <?php
-
 namespace App\Http\Controllers; 
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\GuestLoginRequest; 
+use App\Http\Requests\AdminLoginRequest;
 use App\Services\AuthService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
@@ -25,7 +25,7 @@ class AuthController extends Controller
         return $this->authService->handleAnonymousLogin($request->validated());
     }
 
-    // --- ADMIN WEB LOGIN START ---
+    // --- ADMIN WEB LOGIN ---
 
     public function showLoginForm()
     {
@@ -36,30 +36,21 @@ class AuthController extends Controller
         return view('admin.auth.login');
     }
 
-    public function login(Request $request)
+    public function login(AdminLoginRequest $request)
     {
-        $credentials = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
-
+        $credentials = $request->validated();
         $remember = $request->has('remember');
-
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
-            
             $user = Auth::user();
-
             if ($user->role === 'admin') {
                 return redirect()->route('admin.dashboard');
             }
-
             Auth::logout();
             return back()->withErrors([
                 'email' => 'Access denied. You are not an Admin.',
             ]);
         }
-
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',
         ])->onlyInput('email');

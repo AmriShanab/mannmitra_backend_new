@@ -12,7 +12,6 @@ class ChatService
     protected $aiService;
     protected $crisisService;
 
-    // --- UPDATED SYSTEM PROMPT FOR SMART DETECTION (JSON MODE) ---
     protected $systemPrompt = "
         You are MannMitra, an empathetic and supportive mental health companion.
         
