@@ -9,4 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('app:send-wellness-reminders')->dailyAt('20:00');
-Schedule::command('app:generate-weekly-reflections')->weeklyOn(0, '20:00')->timezone('Asia/Kolkata');
+Schedule::command('app:generate-weekly-reflections')->weeklyOn(3, '11:55')->timezone('Asia/Kolkata');

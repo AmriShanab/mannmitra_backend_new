@@ -61,12 +61,9 @@ class GenerateWeeklyReflections extends Command
                             );
                         }
                     } else {
-                        // Helpful message if service returns false (e.g. no entries found for week)
                         $this->warn("Skipped User ID: {$user->id} (No data or criteria not met)");
                     }
                 } catch (\Throwable $th) {
-                    // --- FIXED ERROR LOGGING ---
-                    // This will print the actual error if something goes wrong
                     $this->error("Error for User {$user->id}: " . $th->getMessage());
                 }
             }
