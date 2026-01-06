@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ListnerWebController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -26,4 +27,13 @@ Route::middleware(['auth:sanctum', 'can:admin-access'])->prefix('admin')->group(
     })->name('admin.approve');
     Route::get('/chat-history/{sessionId}', [DashboardController::class, 'getChatHistory'])->name('admin.chat.history');
     Route::post('/alert/resolve/{id}', [DashboardController::class, 'resolveAlert'])->name('admin.alert.resolve');
+});
+
+
+Route::middleware(['auth', 'can:listener-access'])->prefix('listener')->group(function() {
+    
+    Route::get('/dashboard', [ListnerWebController::class, 'index'])->name('listener.dashboard');
+    Route::post('/ticket/accept/{id}', [ListnerWebController::class, 'acceptTicket'])->name('listener.ticket.accept');
+    Route::get('/chat/{ticket_id}', [ListnerWebController::class, 'chatRoom'])->name('chat');
+
 });

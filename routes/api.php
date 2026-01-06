@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\JournalController;
 use App\Http\Controllers\MoodController;
+use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\CheckAdminRole;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
 
     Route::post('/sessions/start', [AuthController::class, 'guestLogin']);
-    Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::post('/auth/login', [AuthController::class, 'apiLogin']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::controller(UserController::class)->group(function () {
@@ -47,4 +48,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard']);
         Route::post('/approve/{id}', [AdminController::class, 'approveUser']);
     });
+
+    Route::middleware('auth:sanctum')->group(function () {
+    // User Flow
+    Route::post('/tickets/create', [TicketController::class, 'create']);
+    Route::post('/tickets/pay-confirm', [TicketController::class, 'paymentSuccess']);
+
+    // Listener Flow
+    Route::get('/tickets/pool', [TicketController::class, 'listOpen']); // The "Feed"
+    Route::post('/tickets/{id}/accept', [TicketController::class, 'accept']); // The "Action"
+});
 });
