@@ -77,7 +77,7 @@
         const chatForm = document.getElementById('chat-form');
         const messageInput = document.getElementById('message-input');
 
-        const socket = io("http://localhost:3000");
+        const socket = io("http://31.97.232.145:3000");
         socket.emit('join_room', TICKET_ID);
 
         chatForm.addEventListener('submit', (e) => {
