@@ -70,40 +70,104 @@
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
-        const TICKET_ID = "{{ $ticket->ticket_id }}"; 
-        const USER_NAME = "{{ Auth::user()->name }}"; 
+        // 1. Data Setup
+        const TICKET_ID = "{{ $ticket->ticket_id }}";
+        const USER_NAME = "{{ Auth::user()->name }}";
+        const USER_ID = "{{ Auth::id() }}";
 
+        // 2. Elements Setup
         const messagesContainer = document.getElementById('chat-messages');
         const chatForm = document.getElementById('chat-form');
         const messageInput = document.getElementById('message-input');
 
+        // 3. Socket Connection (Using your Server IP)
         const socket = io("http://31.97.232.145:3000");
         socket.emit('join_room', TICKET_ID);
 
-        chatForm.addEventListener('submit', (e) => {
+        // 4. Initial Load: Fetch History from Database
+        async function loadChatHistory() {
+            try {
+                // Updated path to match routes/api.php
+                const response = await fetch(`/api/v1/listener/history/${TICKET_ID}`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (result.status && result.data) {
+                    result.data.forEach(msg => {
+                        const type = (msg.sender_id == USER_ID) ? 'mine' : 'theirs';
+                        const time = new Date(msg.created_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        addMessageToUI(msg.message, type, time);
+                    });
+                }
+            } catch (error) {
+                console.error("Error loading chat history:", error);
+            }
+        }
+
+        // 5. Handle Sending Messages
+        chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const messageText = messageInput.value.trim();
 
             if (messageText) {
-                addMessageToUI(messageText, 'mine');
+                const timestamp = new Date().toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                // A. Update local UI immediately for better UX
+                addMessageToUI(messageText, 'mine', timestamp);
+
+                // B. Emit to Socket Server for real-time delivery
                 socket.emit('send_message', {
                     room: TICKET_ID,
                     message: messageText,
                     sender: USER_NAME,
-                    timestamp: new Date().toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    })
+                    sender_id: USER_ID,
+                    timestamp: timestamp
                 });
+
+                // C. AJAX Call to Laravel to store the message
+                try {
+                    await fetch('/api/v1/listener/messages', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            ticket_id: TICKET_ID,
+                            message: messageText,
+                            sender_id: USER_ID
+                        })
+                    });
+                } catch (err) {
+                    console.error("Database save failed:", err);
+                }
 
                 messageInput.value = '';
             }
         });
 
+        // 6. Listen for Incoming Messages (Real-time)
         socket.on('receive_message', (data) => {
-            addMessageToUI(data.message, 'theirs', data.timestamp);
+            if (data.sender_id != USER_ID) {
+                addMessageToUI(data.message, 'theirs', data.timestamp);
+            }
         });
 
+        // 7. UI Helpers
         function addMessageToUI(text, type, time = 'Just Now') {
             const wrapper = document.createElement('div');
             wrapper.className = `message-wrapper ${type} animate__animated animate__fadeInUp animate__faster`;
@@ -124,7 +188,10 @@
             });
         }
 
-        window.onload = scrollToBottom;
+        // Load history when page opens
+        window.onload = () => {
+            loadChatHistory();
+        };
     </script>
 </body>
 
