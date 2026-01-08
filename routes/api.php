@@ -22,6 +22,7 @@ Route::prefix('v1')->group(function () {
     // --- 1. Public Routes ---
     Route::post('/sessions/start', [AuthController::class, 'guestLogin']);
     Route::post('/auth/login', [AuthController::class, 'apiLogin']);
+        Route::post('/listener/messages', [ListenerChatController::class, 'saveMessage']);
 
     // --- 2. Authenticated Routes (Sanctum & Session Compatible) ---
     Route::middleware(['auth:sanctum'])->group(function () {
@@ -57,8 +58,8 @@ Route::prefix('v1')->group(function () {
         | These routes must be inside auth:sanctum to support mobile,
         | but require 'credentials: include' in JS Fetch for the Web Dashboard.
         */
-        Route::post('/listener/messages', [ListenerChatController::class, 'saveMessage']);
         Route::get('/listener/history/{ticket_id}', [ListenerChatController::class, 'getHistory']);
+        Route::post('/listener/end-session', [ListenerChatController::class, 'endSession']);
 
         // User Ticket Flow
         Route::post('/tickets/create', [TicketController::class, 'create']);
