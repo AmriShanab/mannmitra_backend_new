@@ -26,9 +26,9 @@ class TicketController extends Controller
 
         $user = Auth::user();
 
-        if(!$user->is_paid){
-            return response()->json(['status' => false, 'message' => 'Payment required to create a ticket'], 402);
-        }
+        // if(!$user->is_paid){
+        //     return response()->json(['status' => false, 'message' => 'Payment required to create a ticket'], 402);
+        // }
 
         $activeTicket = $this->ticketService->getUserActiveTicket($user->id);
         if($activeTicket){
