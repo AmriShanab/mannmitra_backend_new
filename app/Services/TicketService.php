@@ -25,7 +25,7 @@ class TicketService
             'ticket_id' => "TKT-" . strtoupper(Str::random(10)),
             'user_id' => $userId,
             'subject' => $subject,
-            'status' => 'in_progress'
+            'status' => 'open'
         ]);
     }
 
