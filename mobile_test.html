@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mobile App Simulator</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .btn { padding: 10px 20px; background: blue; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>Mobile User Simulator</h2>
+    <p>Status: <span id="status">Disconnected</span></p>
+    
+    <button class="btn" onclick="sendMessage()">Send Message & Save to DB</button>
+
+    <script>
+        // 1. SETUP - Change these to match your real data
+        const SERVER_URL = "http://31.97.232.145"; // Your VPS IP
+        const TICKET_ID = 'TKT-SRKWJSSOGZ';        // Use a REAL Ticket ID from your DB
+        const SENDER_ID = 29;                      // Use the REAL User ID (Guest)
+        const MESSAGE = 'Hello Listener, checking DB save!';
+
+        // 2. CONNECT SOCKET
+        const socket = io(`${SERVER_URL}:3000`);
+
+        socket.on('connect', () => {
+            document.getElementById('status').innerText = "Connected to Socket";
+            socket.emit('join_room', TICKET_ID);
+        });
+
+        // 3. THE SEND FUNCTION
+        async function sendMessage() {
+            // A. Send to Screen (Socket)
+            socket.emit('send_message', {
+                room: TICKET_ID,
+                message: MESSAGE,
+                sender_id: SENDER_ID,
+                sender: 'Mobile Guest'
+            });
+
+            console.log("Socket event sent.");
+
+            // B. Send to Database (API)
+            try {
+                const response = await fetch(`${SERVER_URL}/api/v1/listener/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ticket_id: TICKET_ID,
+                        message: MESSAGE,
+                        sender_id: SENDER_ID
+                    })
+                });
+
+                const result = await response.json();
+                console.log("API Response:", result);
+
+                if(response.ok) {
+                    alert("Message Sent & Saved to DB!");
+                } else {
+                    alert("Database Save Failed: " + JSON.stringify(result));
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert("API Error. Check Console.");
+            }
+        }
+    </script>
+</body>
+</html>

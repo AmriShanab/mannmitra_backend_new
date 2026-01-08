@@ -9,6 +9,7 @@ use App\Interfaces\JournalRepositoryInterface;
 use App\Interfaces\MessageRepositoryInterface;
 use App\Interfaces\MoodRepositoryInterface;
 use App\Interfaces\SessionRepositoryInterface;
+use App\Interfaces\SubscriptionRespositoryInterface;
 use App\Interfaces\TicketRepositoryInterface;
 use App\Interfaces\UserRepositoryInterface;
 use App\Models\User;
@@ -17,6 +18,7 @@ use App\Repositories\JournalRepository;
 use App\Repositories\MessageRepository;
 use App\Repositories\MoodRepositary;
 use App\Repositories\SessionRepository;
+use App\Repositories\SubscriptionRepository;
 use App\Repositories\TicketRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\Gate;
@@ -37,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CrisisRepositoryInterface::class, CrisisAlertRepository::class);
         $this->app->bind(AdminRepositoryInterface::class, AdminRepository::class);
         $this->app->bind(TicketRepositoryInterface::class, TicketRepository::class);
+        $this->app->bind(SubscriptionRespositoryInterface::class, SubscriptionRepository::class);
     }
 
     /**

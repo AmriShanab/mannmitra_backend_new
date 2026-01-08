@@ -19,18 +19,20 @@ class TicketService
         $this->ticketRepo = $ticketRepo;
     }
 
-    public function initTicket($userId, $subject){
+    public function initTicket($userId, $subject)
+    {
         return $this->ticketRepo->createTicket([
             'ticket_id' => "TKT-" . strtoupper(Str::random(10)),
             'user_id' => $userId,
             'subject' => $subject,
-            'status' => 'pending_payment'
+            'status' => 'in_progress'
         ]);
     }
 
-    public function processPayment($ticketId, $txnId, $amount){
+    public function processPayment($ticketId, $txnId, $amount)
+    {
         $ticket = $this->ticketRepo->markAsPaid($ticketId);
-        
+
         Payments::create([
             'user_id' => $ticket->user_id,
             'ticket_id' => $ticket->id,
@@ -39,12 +41,12 @@ class TicketService
         ]);
 
         return $ticket;
-
     }
 
-    public function acceptTicket($ticketId, $listnerId){
+    public function acceptTicket($ticketId, $listnerId)
+    {
         $result = $this->ticketRepo->assignListener($ticketId, $listnerId);
-        if(!$result){
+        if (!$result) {
             throw new Exception("Ticket already assigned", 400);
         }
 
@@ -56,4 +58,19 @@ class TicketService
         return $this->ticketRepo->getUnassignedTickets();
     }
 
+    public function getUserActiveTicket($userId)
+    {
+        return $this->ticketRepo->getActiveTicketByUser($userId);
+    }
+
+    public function getUserTicketsByStatus($userId, $status)
+    {
+        $validStatuses = ['open', 'closed', 'pending_payment', 'in_progress'];
+
+        if (!in_array($status, $validStatuses)) {
+            throw new \Exception("Invalid status provided. Allowed: " . implode(', ', $validStatuses), 400);
+        }
+
+        return $this->ticketRepo->getTicketsByUserIdAndStatus($userId, $status);
+    }
 }

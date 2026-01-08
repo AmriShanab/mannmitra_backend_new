@@ -9,4 +9,6 @@ interface TicketRepositoryInterface
     public function getUnassignedTickets();
     public function assignListener($ticketId, $listenerId);
     public function markAsPaid($ticketId);
+    public function getActiveTicketByUser($userId);
+    public function getTicketsByUserIdAndStatus($userId, $status);
 }

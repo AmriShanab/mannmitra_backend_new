@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\ListerMessages;
+use App\Models\Tickets;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ListenerChatController extends Controller
 {
@@ -25,5 +27,24 @@ class ListenerChatController extends Controller
             ->get();
 
         return response()->json(['status' => true, 'data' => $messages]);
+    }
+
+    public function endSession(Request $request)
+    {
+        $request->validate([
+            'ticket_id' => 'required',
+        ]);
+
+        $ticket = Tickets::where('ticket_id', $request->ticket_id)->first();
+
+        if ($ticket->listener_id !== Auth::id()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized to end this session'], 403);
+        }
+
+        $ticket->update([
+            'status' => 'closed'
+        ]);
+
+        return response()->json(['status' => true, 'message' => 'Session ended successfully']);
     }
 }

@@ -24,6 +24,17 @@ class TicketController extends Controller
             'subject' => 'required|string'
         ]);
 
+        $user = Auth::user();
+
+        if(!$user->is_paid){
+            return response()->json(['status' => false, 'message' => 'Payment required to create a ticket'], 402);
+        }
+
+        $activeTicket = $this->ticketService->getUserActiveTicket($user->id);
+        if($activeTicket){
+            return response()->json(['status' => false, 'message' => 'You already have an active ticket'], 400);
+        }
+
         $ticket = $this->ticketService->initTicket(Auth::id(), $request->subject);
         
         // STEP 2: Use $this->successResponse() instead of ApiResponse::success()
@@ -58,6 +69,20 @@ class TicketController extends Controller
         try {
             $ticket = $this->ticketService->acceptTicket($id, Auth::id());
             return $this->successResponse($ticket, 'Ticket accepted successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), $e->getCode() ?: 500);
+        }
+    }
+
+    public function getTicketsByStatus($status)
+    {
+        try {
+            $userId = Auth::id(); // Get the currently logged-in user
+            
+            $tickets = $this->ticketService->getUserTicketsByStatus($userId, $status);
+            
+            return $this->successResponse($tickets, "Tickets with status '$status' retrieved successfully");
+
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), $e->getCode() ?: 500);
         }

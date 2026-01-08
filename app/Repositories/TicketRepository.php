@@ -52,4 +52,22 @@ class TicketRepository implements TicketRepositoryInterface
 
         return $ticket;
     }
+
+    public function getActiveTicketByUser($userId)
+    {
+        $activeTicket = Tickets::where('user_id', $userId)
+                            ->whereIn('status', ['pending_payment', 'open', 'in_progress'])
+                            ->first();
+
+        return $activeTicket;
+    }
+
+    public function getTicketsByUserIdAndStatus($userId, $status)
+    {
+        return Tickets::where('user_id', $userId)
+                        ->where('status', $status)
+                        ->with('listener:id,name')
+                        ->orderBy('created_at', 'desc')
+                        ->get();
+    }
 }

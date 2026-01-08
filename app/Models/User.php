@@ -28,6 +28,7 @@ class User extends Authenticatable
         'language',
         'fcmToken',
         'last_active_at',
+        'is_paid',
     ];
 
     /**

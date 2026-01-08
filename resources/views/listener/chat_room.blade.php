@@ -79,6 +79,7 @@
         const messagesContainer = document.getElementById('chat-messages');
         const chatForm = document.getElementById('chat-form');
         const messageInput = document.getElementById('message-input');
+        const endBtn = document.querySelector('.btn-danger');
 
         // 3. Socket Connection (Using your Server IP)
         const socket = io("http://31.97.232.145:3000");
@@ -159,6 +160,46 @@
                 messageInput.value = '';
             }
         });
+
+        endBtn.addEventListener('click', async() => {
+            if(!confirm("Are you sure you want to end this session?")) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/v1/listener/end-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'    
+                    }, 
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        ticket_id:TICKET_ID
+                    })
+                });
+
+                const result = await response.json();
+                if(result.status) {
+                    alert("Session ended successfully.");
+                    window.location.href = "{{ route('listener.dashboard') }}";
+                }else {
+                    alert("Failed to end session: " + result.message);
+                }
+            } catch (error) {
+                console.error("Error ending session:", error);
+                alert("An error occurred while ending the session.");
+            }
+        });
+
+        socket.on('session_ended', (data) => {
+            messageInput.disabled = true;
+            messageInput.placeholder = "This session has been ended.";
+            document.querySelector('.btn-send').disabled = true;
+            alert("This session has been ended by the listener.");
+        })
 
         // 6. Listen for Incoming Messages (Real-time)
         socket.on('receive_message', (data) => {
