@@ -1,7 +1,7 @@
 MannMitra Server Details
 
 IP Address - 31.97.232.145
-Server Password - cc
+Server Password - M@mmMitr@123
 MYSQL Password = M@mmMitr@123
 Root Access - ssh root@31.97.232.145
 
