@@ -6,6 +6,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\JournalController;
 use App\Http\Controllers\ListenerChatController;
 use App\Http\Controllers\MoodController;
+use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\CheckAdminRole;
@@ -68,6 +69,9 @@ Route::prefix('v1')->group(function () {
         // Listener Flow (Dashboard Actions)
         Route::get('/tickets/pool', [TicketController::class, 'listOpen']);
         Route::post('/tickets/{id}/accept', [TicketController::class, 'accept']);
+
+        // Subscription Management
+        Route::post('/subscription/purchase', [SubscriptionController::class, 'subscribe']);
     });
 
     // --- 3. Admin Only Routes ---
