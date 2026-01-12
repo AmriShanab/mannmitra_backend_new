@@ -29,7 +29,7 @@ class SubscriptionService
             'plan_type' => $planType,
             'transaction_id' => $txnId,
             'amount' => $amount,
-            'start_at' => $startDate,
+            'starts_at' => $startDate,
             'expires_at' => $expiryDate,
             'status' => 'active',
         ]);
