@@ -38,4 +38,9 @@ class SubscriptionService
 
         return $subscription;
     }
+
+    public function getUserSubscription($userId)
+    {
+        return $this->subscriptionRepo->getActiveSubscriptionByUserId($userId);
+    }
 }

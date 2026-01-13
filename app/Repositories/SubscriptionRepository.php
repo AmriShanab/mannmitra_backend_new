@@ -21,4 +21,12 @@ class SubscriptionRepository implements SubscriptionRespositoryInterface
                             ->where('expires_at', '>', now())
                             ->first();
     }
+
+    public function getActiveSubscriptionByUserId($userId)
+    {
+        return Subscription::where('user_id', $userId)
+                            ->where('status', 'active')
+                            ->where('expires_at', '>', now())
+                            ->first();
+    }
 }

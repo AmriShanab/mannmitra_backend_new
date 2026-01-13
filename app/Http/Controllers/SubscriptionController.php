@@ -39,6 +39,18 @@ class SubscriptionController extends Controller
         }
 
     }
+
+    public function status()
+    {
+        $user = Auth::user();
+        $subscription = $this->subscriptionService->getUserSubscription($user->id);
+
+        if(!$subscription){
+            return response()->json(['status' => false, 'message' => 'No active subscription found'], 404);
+        }
+
+        return $this->successResponse($subscription, 'Active subscription retrieved successfully');
+    }
     
 
 }

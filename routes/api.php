@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\JournalController;
@@ -72,6 +73,15 @@ Route::prefix('v1')->group(function () {
 
         // Subscription Management
         Route::post('/subscription/purchase', [SubscriptionController::class, 'subscribe']);
+        Route::get('/subscription/status', [SubscriptionController::class, 'status']);
+
+        // Appointment Management
+        Route::prefix('appointments')->controller(AppointmentController::class)->group(function () {
+            Route::post('/create', 'createAppointment');
+            Route::get('/pending', 'listPendingAppointments');
+            Route::post('/{id}/accept', 'accept');
+            Route::get('/{id}/join', 'getJoinDetails');
+        });
     });
 
     // --- 3. Admin Only Routes ---
