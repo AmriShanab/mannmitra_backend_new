@@ -20,7 +20,6 @@ class AppointmentController extends Controller
     {
         $request->validate([
             'scheduled_at' => 'required|date|after:now',
-            'mode' => 'in:audio,video',
             'notes' => 'nullable|string',
         ]);
 
@@ -62,7 +61,7 @@ class AppointmentController extends Controller
     public function getJoinDetails($id)
     {
         $appointment = Appointment::where('appointment_id', $id)->firstOrFail();
-        
+
         $userId = Auth::id();
         if ($appointment->user_id !== $userId && $appointment->psychiatrist_id !== $userId) {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
@@ -76,5 +75,19 @@ class AppointmentController extends Controller
                 'mode' => $appointment->mode
             ]
         ]);
+    }
+
+    // 5. Doctor: Get My Confirmed Schedule
+    public function mySchedule()
+    {
+        $doctor = Auth::user();
+
+        $appointments = Appointment::where('psychiatrist_id', $doctor->id)
+            ->whereIn('status', ['confirmed', 'completed'])
+            ->with('user:id,name') // Get Patient Name
+            ->orderBy('scheduled_at', 'asc')
+            ->get();
+
+        return response()->json(['status' => true, 'data' => $appointments]);
     }
 }
