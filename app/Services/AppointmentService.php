@@ -22,6 +22,7 @@ class AppointmentService
             'notes' => $data['notes'] ?? null,
             'meeting_link' => $meetingLink,
             'status' => 'pending',
+            'transaction_id' => $data['transaction_id'] ?? null,
         ]);
     }
 

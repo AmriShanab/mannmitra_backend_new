@@ -81,6 +81,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/pending', 'listPendingAppointments');
             Route::post('/{id}/accept', 'accept');
             Route::get('/{id}/join', 'getJoinDetails');
+            Route::get('/my-schedule', 'mySchedule');
         });
     });
 

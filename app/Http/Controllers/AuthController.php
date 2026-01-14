@@ -90,6 +90,10 @@ class AuthController extends Controller
                 return redirect()->route('listener.dashboard');
             }
 
+            if($user->role === 'doctor'){
+                return redirect()->route('psychiatrist.dashboard');
+            }
+
             Auth::logout();
             return back()->withErrors([
                 'email' => 'Access denied. You are not an Admin.',

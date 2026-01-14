@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ListnerWebController;
+use App\Http\Controllers\PsychiatristController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -36,4 +37,8 @@ Route::middleware(['auth', 'can:listener-access'])->prefix('listener')->group(fu
     Route::post('/ticket/accept/{id}', [ListnerWebController::class, 'acceptTicket'])->name('listener.ticket.accept');
     Route::get('/chat/{ticket_id}', [ListnerWebController::class, 'chatRoom'])->name('chat');
 
+});
+
+Route::middleware(['auth', 'can:psychiatrist-access'])->group(function(){
+    Route::get('/psychiatrist/dashboard', [PsychiatristController::class, 'index'])->name('psychiatrist.dashboard');
 });

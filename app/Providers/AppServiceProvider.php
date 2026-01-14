@@ -56,5 +56,9 @@ class AppServiceProvider extends ServiceProvider
             // Allow if role is 'listener' OR 'admin'
             return in_array($user->role, ['listener', 'admin']);
         });
+
+        Gate::define('psychiatrist-access', function (User $user) {
+            return in_array($user->role, ['doctor', 'admin']);
+        });
     }
 }

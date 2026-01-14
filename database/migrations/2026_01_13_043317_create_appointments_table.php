@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('psychiatrist_id')->nullable()->constrained('users')->onDelete('set null');
             $table->dateTime('scheduled_at');
-            $table->enum('mode', ['audio', 'video'])->default('video');
+            $table->enum('mode', ['audio', 'video'])->default('video')->nullable();
             $table->enum('status', ['pending', 'confirmed', 'completed', 'cancelled'])->default('pending');
             $table->string('meeting_link')->nullable();
             $table->text('notes')->nullable();
