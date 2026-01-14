@@ -36,14 +36,27 @@ class AppointmentController extends Controller
         }
     }
 
+    private function getMaskedName($user)
+    {
+        // If user has a specific 'nickname' field, use that.
+        // Otherwise, generate a masked ID based on their User ID.
+        return "Anonymous User #" . (1000 + $user->id);
+    }
+
     public function listPendingAppointments()
     {
-        $appointments = Appointment::where('status', 'pending')
+        $appointments = \App\Models\Appointment::where('status', 'pending')
             ->with('user:id,name')
             ->orderBy('scheduled_at', 'asc')
             ->get();
 
-        return response()->json(['status' => true, 'data' => $appointments], 200);
+        // TRANSFORM THE DATA (Identity Masking)
+        $appointments->transform(function ($apt) {
+            $apt->user->name = $this->getMaskedName($apt->user);
+            return $apt;
+        });
+
+        return response()->json(['status' => true, 'data' => $appointments]);
     }
 
     public function accept($id)
@@ -82,12 +95,49 @@ class AppointmentController extends Controller
     {
         $doctor = Auth::user();
 
-        $appointments = Appointment::where('psychiatrist_id', $doctor->id)
+        $appointments = \App\Models\Appointment::where('psychiatrist_id', $doctor->id)
             ->whereIn('status', ['confirmed', 'completed'])
-            ->with('user:id,name') // Get Patient Name
+            ->with('user:id,name')
             ->orderBy('scheduled_at', 'asc')
             ->get();
 
+        // TRANSFORM THE DATA (Identity Masking)
+        $appointments->transform(function ($apt) {
+            $apt->user->name = $this->getMaskedName($apt->user);
+            return $apt;
+        });
+
         return response()->json(['status' => true, 'data' => $appointments]);
+    }
+
+    public function getAppointmentsOfUser()
+    {
+        try {
+            // Automatically get the ID of the user currently logged in via Token
+            $userId = Auth::id();
+
+            $appointments = Appointment::where('user_id', $userId)
+                ->with(['psychiatrist:id,name'])
+                ->orderBy('scheduled_at', 'desc')
+                ->get();
+
+            if ($appointments->isEmpty()) {
+                return response()->json([
+                    "status" => true,
+                    "message" => "No appointments found.",
+                    "data" => []
+                ], 200);
+            }
+
+            return response()->json([
+                "status" => true,
+                "data" => $appointments
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "status" => false,
+                "message" => "Error: " . $th->getMessage()
+            ], 500);
+        }
     }
 }

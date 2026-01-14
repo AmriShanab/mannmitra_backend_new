@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Appointment;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Support\Str;
 
 class AppointmentService
@@ -31,6 +32,15 @@ class AppointmentService
         $appointment = Appointment::where('appointment_id', $appointmentId)->firstOrFail();
         if($appointment->status != 'pending'){
             throw new \Exception('The Appointment is no longer available.', 400);
+        }
+
+        $hasConflict = Appointment::where('psychiatrist_id', $psychiatristId)
+                                    ->where('scheduled_at', $appointment->schedule_at)
+                                    ->where('status', 'confirmed')
+                                    ->get();
+
+        if($hasConflict){
+            throw new Exception("You already have an appointment on this time slot");
         }
 
         $appointment->update([
