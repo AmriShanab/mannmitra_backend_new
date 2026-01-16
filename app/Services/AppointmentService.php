@@ -17,7 +17,7 @@ class AppointmentService
         return Appointment::create([
             'appointment_id' => $aptId,
             'user_id' => $user->id,
-            'scheduled_at' => Carbon::parse($data['scheduled_at'])->setTimezone('Asia/Kolkata'),
+            'scheduled_at' => Carbon::parse($data['scheduled_at'], 'Asia/Kolkata')->format('Y-m-d H:i:s'),
             'mode' => $data['mode'] ?? 'video',
             'notes' => $data['notes'] ?? null,
             'meeting_link' => $meetingLink,
@@ -29,16 +29,16 @@ class AppointmentService
     public function acceptRequest($appointmentId, $psychiatristId)
     {
         $appointment = Appointment::where('appointment_id', $appointmentId)->firstOrFail();
-        if($appointment->status != 'pending'){
+        if ($appointment->status != 'pending') {
             throw new \Exception('The Appointment is no longer available.', 400);
         }
 
         $hasConflict = Appointment::where('psychiatrist_id', $psychiatristId)
-                                    ->where('scheduled_at', $appointment->schedule_at)
-                                    ->where('status', 'confirmed')
-                                    ->get();
+            ->where('scheduled_at', $appointment->schedule_at)
+            ->where('status', 'confirmed')
+            ->get();
 
-        if($hasConflict){
+        if ($hasConflict) {
             throw new Exception("You already have an appointment on this time slot");
         }
 
