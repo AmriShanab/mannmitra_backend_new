@@ -38,8 +38,6 @@ class AppointmentController extends Controller
 
     private function getMaskedName($user)
     {
-        // If user has a specific 'nickname' field, use that.
-        // Otherwise, generate a masked ID based on their User ID.
         return "Anonymous User #" . (1000 + $user->id);
     }
 
@@ -50,7 +48,6 @@ class AppointmentController extends Controller
             ->orderBy('scheduled_at', 'asc')
             ->get();
 
-        // TRANSFORM THE DATA (Identity Masking)
         $appointments->transform(function ($apt) {
             $apt->user->name = $this->getMaskedName($apt->user);
             return $apt;
@@ -90,7 +87,6 @@ class AppointmentController extends Controller
         ]);
     }
 
-    // 5. Doctor: Get My Confirmed Schedule
     public function mySchedule()
     {
         $doctor = Auth::user();
@@ -101,7 +97,6 @@ class AppointmentController extends Controller
             ->orderBy('scheduled_at', 'asc')
             ->get();
 
-        // TRANSFORM THE DATA (Identity Masking)
         $appointments->transform(function ($apt) {
             $apt->user->name = $this->getMaskedName($apt->user);
             return $apt;
@@ -113,7 +108,6 @@ class AppointmentController extends Controller
     public function getAppointmentsOfUser()
     {
         try {
-            // Automatically get the ID of the user currently logged in via Token
             $userId = Auth::id();
 
             $appointments = Appointment::where('user_id', $userId)

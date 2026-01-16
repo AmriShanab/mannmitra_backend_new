@@ -11,14 +11,13 @@ class AppointmentService
 {
     public function createRequest($user, $data)
     {
-        // Generate a unique appointment ID
         $aptId = 'APT-' . strtoupper(Str::random(8));
         $meetingLink = 'MEET-' . strtoupper(Str::random(12));
 
         return Appointment::create([
             'appointment_id' => $aptId,
             'user_id' => $user->id,
-            'scheduled_at' => Carbon::parse($data['scheduled_at']),
+            'scheduled_at' => Carbon::parse($data['scheduled_at'])->setTimezone('Asia/Kolkata'),
             'mode' => $data['mode'] ?? 'video',
             'notes' => $data['notes'] ?? null,
             'meeting_link' => $meetingLink,
