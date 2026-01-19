@@ -406,7 +406,8 @@
                             success(json.data.map(apt => ({
                                 title: apt.user.name,
                                 start: apt.scheduled_at,
-                                url: `/api/v1/appointments/${apt.appointment_id}/join`,
+                                // NEW (Correct - Points to Web Page)
+                                url: `/meet/${apt.appointment_id}`,
                                 color: '#0D9488', // Teal
                                 extendedProps: {
                                     notes: apt.notes
@@ -420,7 +421,7 @@
                 eventClick: (info) => {
                     info.jsEvent.preventDefault();
                     if (confirm(`Join session with ${info.event.title}?`)) window.open(info.event.url,
-                    '_blank');
+                        '_blank');
                 }
             });
             calendar.render();

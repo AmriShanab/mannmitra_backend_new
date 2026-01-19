@@ -41,4 +41,5 @@ Route::middleware(['auth', 'can:listener-access'])->prefix('listener')->group(fu
 
 Route::middleware(['auth', 'can:psychiatrist-access'])->group(function(){
     Route::get('/psychiatrist/dashboard', [PsychiatristController::class, 'index'])->name('psychiatrist.dashboard');
+    Route::get('/meet/{id}', [PsychiatristController::class, 'openVideoPage'])->name('video.room');
 });
