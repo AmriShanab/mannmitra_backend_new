@@ -33,14 +33,14 @@ class AppointmentService
             throw new \Exception('The Appointment is no longer available.', 400);
         }
 
-        $hasConflict = Appointment::where('psychiatrist_id', $psychiatristId)
-            ->where('scheduled_at', $appointment->schedule_at)
-            ->where('status', 'confirmed')
-            ->get();
+        // $hasConflict = Appointment::where('psychiatrist_id', $psychiatristId)
+        //     ->where('scheduled_at', $appointment->schedule_at)
+        //     ->where('status', 'confirmed')
+        //     ->get();
 
-        if ($hasConflict) {
-            throw new Exception("You already have an appointment on this time slot");
-        }
+        // if ($hasConflict) {
+        //     throw new Exception("You already have an appointment on this time slot");
+        // }
 
         $appointment->update([
             'psychiatrist_id' => $psychiatristId,
