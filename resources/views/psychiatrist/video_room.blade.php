@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>MannMitra Video Session</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -19,36 +19,52 @@
             --text-color: #f8fafc;
         }
 
-        body {
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100dvh; /* FIX: Adapts to mobile browser bars */
             background-color: var(--bg-color);
             color: var(--text-color);
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            height: 100vh;
-            overflow: hidden;
+            overflow: hidden; /* Prevent scrolling */
             display: flex;
             flex-direction: column;
         }
 
-        /* Main Video Area */
+        /* Main Video Area - Takes available space */
         .main-stage {
             flex: 1;
-            position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            padding: 10px;
+            position: relative;
+            min-height: 0; /* FIX: Allows flex child to shrink properly */
+            width: 100%;
         }
 
         .remote-video-container {
             width: 100%;
-            height: 100%;
+            height: auto;
+            aspect-ratio: 16/9; /* Maintain video shape */
+            max-height: 100%; /* Never taller than the stage */
             max-width: 1280px;
-            max-height: 720px;
             position: relative;
-            border-radius: 24px;
+            border-radius: 16px;
             overflow: hidden;
             background: #000;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        /* On very tall screens (mobile), allow video to fill height if needed */
+        @media (orientation: portrait) {
+            .remote-video-container {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 3/4; /* Better for mobile portrait */
+                object-fit: cover;
+            }
         }
 
         #remoteVideo {
@@ -60,54 +76,45 @@
         /* Local Video (Floating PIP) */
         .local-video-container {
             position: absolute;
-            bottom: 30px;
-            right: 30px;
-            width: 280px;
-            height: 160px;
-            border-radius: 16px;
+            bottom: 20px;
+            right: 20px;
+            width: 160px; /* Smaller default for responsiveness */
+            height: 120px;
+            border-radius: 12px;
             overflow: hidden;
-            border: 2px solid rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
             background: #1e1e1e;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4);
             z-index: 10;
-        }
-
-        .local-video-container:hover {
-            transform: scale(1.05);
-            border-color: var(--primary-color);
         }
 
         #localVideo {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Mirror effect */
+            transform: scaleX(-1);
         }
 
         /* Top Bar */
         .top-bar {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            right: 20px;
+            height: 60px;
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
             z-index: 5;
-            pointer-events: none; /* Let clicks pass through */
+            width: 100%;
         }
 
         .session-badge {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(10px);
-            padding: 10px 20px;
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 8px 16px;
             border-radius: 50px;
             border: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
             align-items: center;
             gap: 10px;
-            pointer-events: auto;
+            font-size: 0.9rem;
         }
 
         .status-dot {
@@ -120,14 +127,17 @@
 
         /* Bottom Controls Bar */
         .controls-bar {
-            height: 80px;
+            height: 80px; /* Fixed height */
+            min-height: 80px;
             background: var(--surface-color);
             border-top: 1px solid rgba(255,255,255,0.05);
             display: flex;
             justify-content: center;
             align-items: center;
             gap: 20px;
+            padding-bottom: env(safe-area-inset-bottom); /* iPhone Home Bar fix */
             z-index: 20;
+            width: 100%;
         }
 
         .control-btn {
@@ -138,35 +148,23 @@
             background: rgba(255, 255, 255, 0.1);
             color: white;
             font-size: 18px;
-            transition: all 0.2s ease;
             display: flex;
             justify-content: center;
             align-items: center;
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .control-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
-        }
-
-        .control-btn.active {
-            background: var(--danger-color);
-            color: white;
-        }
+        .control-btn:active { transform: scale(0.95); }
+        .control-btn.active { background: var(--danger-color); }
 
         .btn-hangup {
             width: 70px;
-            height: 50px;
             border-radius: 25px;
             background: var(--danger-color);
         }
 
-        .btn-hangup:hover {
-            background: #dc2626;
-        }
-
-        /* Waiting Screen Overlay */
+        /* Waiting Screen */
         #waitingOverlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -179,52 +177,47 @@
         }
         
         .pulse-ring {
-            display: block;
-            width: 80px;
-            height: 80px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
             background: var(--primary-color);
             animation: pulse 2s infinite;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 30px rgba(14, 165, 233, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+            0% { transform: scale(0.95); opacity: 0.7; }
+            70% { transform: scale(1); opacity: 0; }
+            100% { transform: scale(0.95); opacity: 0; }
         }
 
-        /* Responsive Adjustments */
-        @media (max-width: 768px) {
+        /* Mobile specific tweaks */
+        @media (min-width: 768px) {
             .local-video-container {
-                width: 120px;
-                height: 160px; /* Portrait for mobile */
-                top: 20px;
-                right: 20px;
-                bottom: auto;
-            }
-            .controls-bar {
-                gap: 15px;
+                width: 240px;
+                height: 135px;
+                bottom: 30px;
+                right: 30px;
             }
         }
     </style>
 </head>
 <body>
 
-    <div class="main-stage">
-        <div class="top-bar">
-            <div class="session-badge">
-                <div class="status-dot"></div>
-                <span class="fw-bold">Live Session</span>
-                <span class="text-white-50 mx-2">|</span>
-                <span class="small text-white-50">#{{ $appointment->appointment_id }}</span>
-            </div>
+    <div class="top-bar">
+        <div class="session-badge">
+            <div class="status-dot"></div>
+            <span class="fw-bold">Live</span>
+            <span class="text-white-50 mx-2">|</span>
+            <span class="small text-white-50">#{{ $appointment->appointment_id }}</span>
         </div>
+    </div>
 
+    <div class="main-stage">
         <div class="remote-video-container">
             <div id="waitingOverlay">
                 <div class="pulse-ring"></div>
-                <h4 class="fw-light">Waiting for patient...</h4>
+                <h5 class="fw-light text-white-50">Waiting for patient...</h5>
             </div>
             <video id="remoteVideo" autoplay playsinline></video>
         </div>
@@ -235,14 +228,13 @@
     </div>
 
     <div class="controls-bar">
-        <button class="control-btn" id="btnMic" onclick="toggleMute()" title="Toggle Microphone">
+        <button class="control-btn" id="btnMic" onclick="toggleMute()">
             <i class="fas fa-microphone"></i>
         </button>
-        <button class="control-btn" id="btnCam" onclick="toggleVideo()" title="Toggle Camera">
+        <button class="control-btn" id="btnCam" onclick="toggleVideo()">
             <i class="fas fa-video"></i>
         </button>
-        
-        <button class="control-btn btn-hangup" onclick="endCall()" title="End Call">
+        <button class="control-btn btn-hangup" onclick="endCall()">
             <i class="fas fa-phone-slash"></i>
         </button>
     </div>
@@ -264,58 +256,46 @@
             ]
         };
 
-        // --- VARIABLES ---
         let pc;
         let localStream;
         let candidateQueue = [];
         const socket = io(SIGNALING_URL, { transports: ['websocket'] });
 
-        // --- UI ELEMENTS ---
         const remoteVideo = document.getElementById('remoteVideo');
         const waitingOverlay = document.getElementById('waitingOverlay');
         const btnMic = document.getElementById('btnMic');
         const btnCam = document.getElementById('btnCam');
 
-        // --- INITIALIZATION ---
         async function startCall() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('localVideo').srcObject = localStream;
             } catch (e) {
-                alert("Could not access Camera/Microphone. Please allow permissions.");
-                console.error(e);
+                alert("Camera access failed. Check permissions.");
                 return;
             }
 
-            // Init PeerConnection
             pc = new RTCPeerConnection(rtcConfig);
-
-            // Add Local Tracks
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-            // Handle Remote Tracks
             pc.ontrack = (event) => {
                 if(remoteVideo.srcObject !== event.streams[0]) {
                     remoteVideo.srcObject = event.streams[0];
-                    waitingOverlay.style.display = 'none'; // Hide waiting screen
-                    console.log("Video Connected!");
+                    waitingOverlay.style.display = 'none'; 
                 }
             };
 
-            // Handle ICE Candidates
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
                     socket.emit('ice_candidate', { room: ROOM_ID, candidate: event.candidate });
                 }
             };
 
-            // Join Room
             socket.emit('join_call', ROOM_ID);
         }
 
-        // --- SIGNALING HANDLERS ---
         socket.on('peer_joined', async () => {
-            console.log("Peer Joined. Waiting 1s for stability...");
+            console.log("Peer Joined. Waiting 1s...");
             setTimeout(async () => {
                 try {
                     const offer = await pc.createOffer();
@@ -326,7 +306,6 @@
         });
 
         socket.on('receive_offer', async (sdp) => {
-            console.log("Received Offer");
             try {
                 await pc.setRemoteDescription(new RTCSessionDescription(sdp));
                 const answer = await pc.createAnswer();
@@ -337,7 +316,6 @@
         });
 
         socket.on('receive_answer', async (sdp) => {
-            console.log("Received Answer");
             try {
                 await pc.setRemoteDescription(new RTCSessionDescription(sdp));
                 await processCandidateQueue();
@@ -348,7 +326,6 @@
             if (pc.remoteDescription) {
                 try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
             } else {
-                console.log("Buffering Candidate...");
                 candidateQueue.push(candidate);
             }
         });
@@ -362,18 +339,14 @@
             }
         }
 
-        // --- HANGUP & CLOSING LOGIC ---
         socket.on('peer_hangup', () => {
-            alert("The patient has left the session.");
+            alert("Call ended by patient.");
             closeVideoCall();
         });
 
         async function endCall() {
-            if (confirm("End this session for everyone?")) {
-                // 1. Notify Socket
+            if (confirm("End session?")) {
                 socket.emit('hangup', { room: ROOM_ID });
-                
-                // 2. Notify DB to close appointment
                 try {
                     await fetch(API_CLOSE_URL, {
                         method: 'POST',
@@ -383,43 +356,36 @@
                         },
                         body: JSON.stringify({ meeting_link: ROOM_ID })
                     });
-                } catch (e) { console.error("DB Update Failed", e); }
-
-                // 3. Close Local
+                } catch (e) { console.error(e); }
                 closeVideoCall();
             }
         }
 
         function closeVideoCall() {
-            if (pc) { pc.close(); pc = null; }
-            if (localStream) { localStream.getTracks().forEach(t => t.stop()); }
-            
-            // Redirect to dashboard
+            if (pc) pc.close();
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
             window.location.href = "/psychiatrist/dashboard";
         }
 
-        // --- CONTROL TOGGLES ---
         function toggleMute() {
-            const audioTrack = localStream.getAudioTracks()[0];
-            if (audioTrack) {
-                audioTrack.enabled = !audioTrack.enabled;
+            const track = localStream.getAudioTracks()[0];
+            if (track) {
+                track.enabled = !track.enabled;
                 btnMic.classList.toggle('active');
-                btnMic.innerHTML = audioTrack.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+                btnMic.innerHTML = track.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
             }
         }
 
         function toggleVideo() {
-            const videoTrack = localStream.getVideoTracks()[0];
-            if (videoTrack) {
-                videoTrack.enabled = !videoTrack.enabled;
+            const track = localStream.getVideoTracks()[0];
+            if (track) {
+                track.enabled = !track.enabled;
                 btnCam.classList.toggle('active');
-                btnCam.innerHTML = videoTrack.enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+                btnCam.innerHTML = track.enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
             }
         }
 
-        // Start
         startCall();
-
     </script>
 </body>
 </html>

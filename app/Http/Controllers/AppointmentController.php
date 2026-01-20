@@ -159,6 +159,5 @@ class AppointmentController extends Controller
 
         return response()->json(['status' => false, 'message' => 'Appointment Not Found'], 404);
 
-
     }
 }
