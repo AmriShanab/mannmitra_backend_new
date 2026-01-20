@@ -243,7 +243,7 @@
         // --- CONFIGURATION ---
         const ROOM_ID = "{{ $appointment->meeting_link }}";
         const SIGNALING_URL = "http://31.97.232.145:3000";
-        const API_CLOSE_URL = "/api/appointment/close";
+        const API_CLOSE_URL = "/api/v1/appointments/close";
         
         const rtcConfig = {
             iceServers: [
