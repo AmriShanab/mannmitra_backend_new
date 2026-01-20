@@ -82,6 +82,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/{id}/accept', 'accept');
             Route::get('/{id}/join', 'getJoinDetails');
             Route::get('/my-history', [AppointmentController::class, 'getAppointmentsOfUser']);
+            Route::post('/appointment/close', [App\Http\Controllers\AppointmentController::class, 'closeAppointment']);
         });
     });
 

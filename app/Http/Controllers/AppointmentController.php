@@ -76,7 +76,7 @@ class AppointmentController extends Controller
         if ($appointment->user_id !== $userId && $appointment->psychiatrist_id !== $userId) {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
         }
-        
+
         if (in_array($appointment->status, ['expired', 'closed', 'cancelled'])) {
             return response()->json([
                 'status' => false, 
@@ -140,5 +140,25 @@ class AppointmentController extends Controller
                 "message" => "Error: " . $th->getMessage()
             ], 500);
         }
+    }
+
+    public function closingAppointments(Request $request)
+    {
+        $request->validate([
+            'meeting_link' => 'required|string',
+        ]);
+
+        $appointment = Appointment::where('meeting_link', $request->meeting_link)->first();
+
+        if($appointment){
+            $appointment->status = 'completed';
+            $appointment->save();
+
+            return response()->json(['status' => true, 'message' => 'Appointment Completed Successfully']);
+        }
+
+        return response()->json(['status' => false, 'message' => 'Appointment Not Found'], 404);
+
+
     }
 }
