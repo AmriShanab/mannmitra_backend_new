@@ -81,7 +81,6 @@ Route::prefix('v1')->group(function () {
             Route::get('/my-schedule', 'mySchedule');
             Route::post('/{id}/accept', 'accept');
             Route::get('/{id}/join', 'getJoinDetails');
-            // Now the URL is simply: /api/v1/appointments/my-history
             Route::get('/my-history', [AppointmentController::class, 'getAppointmentsOfUser']);
         });
     });

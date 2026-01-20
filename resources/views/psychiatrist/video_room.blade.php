@@ -63,8 +63,13 @@
 
         async function startCall() {
             // 1. Get Camera
-            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            document.getElementById('localVideo').srcObject = localStream;
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('localVideo').srcObject = localStream;
+            } catch (e) {
+                alert("Camera/Mic access failed. Please check permissions.");
+                return;
+            }
 
             // 2. Setup PeerConnection
             pc = new RTCPeerConnection(rtcConfig);
@@ -113,10 +118,47 @@
             pc.addIceCandidate(new RTCIceCandidate(candidate));
         });
 
+        // --- HANGUP LOGIC (NEW) ---
+        
+        // 1. Listen for the other person hanging up
+        socket.on('peer_hangup', () => {
+            alert("The patient has ended the call.");
+            closeVideoCall();
+        });
+
+        // 2. Function called when YOU click the Red X button
+        function endCall() { 
+            if (confirm("Are you sure you want to end the session?")) {
+                // Notify server to tell the other person
+                socket.emit('hangup', { room: ROOM_ID });
+                closeVideoCall();
+            }
+        }
+
+        // 3. Helper to clean up and close window
+        function closeVideoCall() {
+            if (pc) {
+                pc.close();
+                pc = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            window.close(); 
+            // Fallback if window.close() is blocked by browser
+            window.location.href = "/dashboard"; 
+        }
+
         // --- UTILS ---
-        function endCall() { window.close(); }
-        function toggleMute() { localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled; }
-        function toggleVideo() { localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled; }
+        function toggleMute() { 
+            const audioTrack = localStream.getAudioTracks()[0];
+            if(audioTrack) audioTrack.enabled = !audioTrack.enabled;
+        }
+        
+        function toggleVideo() { 
+            const videoTrack = localStream.getVideoTracks()[0];
+            if(videoTrack) videoTrack.enabled = !videoTrack.enabled;
+        }
 
         // Start immediately on load
         startCall();

@@ -76,6 +76,13 @@ class AppointmentController extends Controller
         if ($appointment->user_id !== $userId && $appointment->psychiatrist_id !== $userId) {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
         }
+        
+        if (in_array($appointment->status, ['expired', 'closed', 'cancelled'])) {
+            return response()->json([
+                'status' => false, 
+                'message' => 'This appointment has expired or is no longer active.'
+            ], 403);
+        }
 
         return response()->json([
             'status' => true,
@@ -91,7 +98,7 @@ class AppointmentController extends Controller
     {
         $doctor = Auth::user();
 
-        $appointments = \App\Models\Appointment::where('psychiatrist_id', $doctor->id)
+        $appointments = Appointment::where('psychiatrist_id', $doctor->id)
             ->whereIn('status', ['confirmed', 'completed'])
             ->with('user:id,name')
             ->orderBy('scheduled_at', 'asc')

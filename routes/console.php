@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('app:send-wellness-reminders')->dailyAt('19:00')->timezone('Asia/Kolkata');
 Schedule::command('app:generate-weekly-reflections')->weeklyOn(0, '18:00')->timezone('Asia/Kolkata');
+Schedule::command('closed:expired:appointments')->daily();
