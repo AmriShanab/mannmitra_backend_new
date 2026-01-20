@@ -395,7 +395,7 @@
             if (localStream) { localStream.getTracks().forEach(t => t.stop()); }
             
             // Redirect to dashboard
-            window.location.href = "/dashboard";
+            window.location.href = "/psychiatrist/dashboard";
         }
 
         // --- CONTROL TOGGLES ---
