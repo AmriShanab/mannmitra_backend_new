@@ -344,6 +344,15 @@
         </div>
 
         <div id="view-schedule" class="d-none">
+            <div class="d-flex gap-3 mb-3 align-items-center flex-wrap">
+                <small class="fw-bold text-muted">KEY:</small>
+                <span class="badge rounded-pill" style="background: #0D9488">Confirmed</span>
+                <span class="badge rounded-pill" style="background: #059669">Completed</span>
+                <span class="badge rounded-pill" style="background: #475569">Closed</span>
+                <span class="badge rounded-pill" style="background: #DC2626">Cancelled</span>
+                <span class="badge rounded-pill" style="background: #D97706">Pending</span>
+            </div>
+
             <div id='calendar'></div>
         </div>
 
@@ -386,6 +395,26 @@
         }
 
         // CALENDAR
+        // HELPER: Get Color based on Status
+        function getStatusColor(status) {
+            switch (status.toLowerCase()) {
+                case 'confirmed':
+                    return '#0D9488'; // Teal (Primary) - Upcoming
+                case 'completed':
+                    return '#059669'; // Green - Successfully Done
+                case 'closed':
+                    return '#475569'; // Slate Grey - Archived/Closed
+                case 'cancelled':
+                case 'expired':
+                    return '#DC2626'; // Red - Cancelled
+                case 'pending':
+                    return '#D97706'; // Amber - Waiting for approval
+                default:
+                    return '#3B82F6'; // Blue - Default
+            }
+        }
+
+        // CALENDAR INITIALIZATION
         function initCalendar() {
             var calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
                 initialView: 'dayGridMonth',
@@ -396,20 +425,27 @@
                 },
                 themeSystem: 'bootstrap5',
                 height: 'auto',
+
+                // 1. Fetch Events
                 events: async (info, success, failure) => {
                     try {
                         const res = await fetch(`${API_BASE}/appointments/my-schedule`, {
                             headers: HEADERS
                         });
                         const json = await res.json();
+
                         if (json.status) {
                             success(json.data.map(apt => ({
-                                title: apt.user.name,
+                                title: `${apt.user.name} (${apt.mode})`, // Show Name + Mode
                                 start: apt.scheduled_at,
-                                // NEW (Correct - Points to Web Page)
                                 url: `/meet/${apt.appointment_id}`,
-                                color: '#0D9488', // Teal
+
+                                // 2. APPLY DYNAMIC COLOR
+                                color: getStatusColor(apt.status),
+
+                                // 3. Add extra data for tooltips/logic
                                 extendedProps: {
+                                    status: apt.status,
                                     notes: apt.notes
                                 }
                             })));
@@ -418,10 +454,23 @@
                         failure(e);
                     }
                 },
+
+                // 4. Handle Click (Prevent joining if cancelled/closed)
                 eventClick: (info) => {
-                    info.jsEvent.preventDefault();
-                    if (confirm(`Join session with ${info.event.title}?`)) window.open(info.event.url,
-                        '_blank');
+                    info.jsEvent.preventDefault(); // Stop default browser navigation
+
+                    const status = info.event.extendedProps.status;
+                    const url = info.event.url;
+
+                    // If it is NOT active, just show an alert instead of opening the room
+                    if (['cancelled', 'expired', 'closed', 'completed'].includes(status)) {
+                        alert(`This appointment is ${status.toUpperCase()} and cannot be joined.`);
+                    } else {
+                        // If Confirmed, allow join
+                        if (confirm(`Join video session with ${info.event.title}?`)) {
+                            window.open(url, '_blank');
+                        }
+                    }
                 }
             });
             calendar.render();
