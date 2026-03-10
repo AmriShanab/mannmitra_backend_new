@@ -117,11 +117,11 @@ class AiCompanionService
             4. AUTOMATIC JOURNALING: If the user shares a significant emotional update, a life event, or vents in their text, summarize their situation and mood into a short 'journal_summary' so it can be saved to their diary automatically.
             
             UI WIDGET DECISION ENGINE (CRITICAL):
-            Do not lazily default to 'text_input'. Match the UI friction to the user's current emotional bandwidth:
-            - 'buttons': Use when overwhelmed, highly anxious, exhausted. (e.g., \"Listen to me vent\").
+            Do not lazily default to 'emoji_slider'. Match the UI friction to the user's current emotional bandwidth:
+            - 'buttons': Use when overwhelmed, highly anxious, exhausted. (e.g., \"Listen to me vent\", \"Distract me\").
             - 'voice_record': Use when frustrated, angry, or has a complex story.
-            - 'emoji_slider': Use to establish a baseline.
-            - 'text_input': Use when calm or chatty.
+            - 'emoji_slider': Use ONLY IF you haven't checked their mood yet today to establish a baseline. NEVER ask for a mood score if they just gave you one.
+            - 'text_input': Use when calm, chatty, or ready to talk normally.
             - 🚨 CRISIS RULE: If extreme distress, self-harm, or suicide, stop normal chat. Set 'ui_mode' to 'crisis_cards'.
             
             YOU MUST RESPOND STRICTLY IN THIS JSON FORMAT:
@@ -135,8 +135,15 @@ class AiCompanionService
         ";
 
         $userInstruction = "Recent Conversation:\n" . $recentMessages . "\n\nUser just triggered: " . $inputType;
+
+        // --- ANTI-LOOP RULE FOR EMOJI SLIDER ---
+        if ($inputType === 'emoji_slider') {
+            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just submitted their mood score. Acknowledge how they are feeling naturally. CRITICAL: DO NOT use 'emoji_slider' again for your response. Choose 'text_input', 'voice_record', or 'buttons' to continue the chat.";
+        }
+
+        // --- SMARTER 'INIT' PROMPT ---
         if ($inputType === 'init') {
-            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just opened the app. Greet them warmly like a friend. Check the CONTEXT. If they had a negative mood score or stressful journal recently, gently check in on that specific thing.";
+            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just opened the app. Greet them warmly like a friend. Check the CONTEXT. If their recent messages show they were in a crisis or highly distressed, gently check in on them. CRITICAL: DO NOT trigger 'crisis_cards'. Use 'buttons' or 'text_input' to ease them back into a normal conversation.";
         }
 
         try {
@@ -147,17 +154,27 @@ class AiCompanionService
                 $this->repo->createJournalEntry($user->id, $aiData['journal_summary'], null, 'Auto-generated from text conversation.');
             }
 
-            // Crisis Interceptor
+            // Backend Safety Net for Ghost Crisis triggers
             if (isset($aiData['ui_mode']) && $aiData['ui_mode'] === 'crisis_cards') {
-                $this->repo->flagLatestMessageAsCrisis($session->id);
-                $this->repo->createCrisisAlert($session->id, 'AI Detected Crisis');
+                if ($inputType === 'init') {
+                    $aiData['ui_mode'] = 'buttons';
+                    $aiData['ai_message'] = "Hey, I remember things were really tough last time we spoke. I'm so glad you're back. How are you feeling right now?";
+                    $aiData['options'] = [
+                        ['id' => 'feeling_better', 'label' => 'A bit better'],
+                        ['id' => 'still_struggling', 'label' => 'Still struggling'],
+                        ['id' => 'distract_me', 'label' => 'Just distract me']
+                    ];
+                } else {
+                    $this->repo->flagLatestMessageAsCrisis($session->id);
+                    $this->repo->createCrisisAlert($session->id, 'AI Detected Crisis');
 
-                $aiData['ai_message'] = "I'm really concerned about what you just said. You are not alone, and there is help available.\n\nPlease reach out to these support lines in India immediately:\n📞 **iCall:** 9152987821 (Mon-Sat, 10 AM - 8 PM)\n📞 **AASRA:** 9820466726 (24x7)\n📞 **Vandrevala Foundation:** 1860 266 2345 (24x7)\n\nI am here to listen, but please consider calling one of these numbers right now.";
-                $aiData['options'] = [
-                    ['id' => '9152987821', 'label' => 'Call iCall'],
-                    ['id' => '9820466726', 'label' => 'Call AASRA'],
-                    ['id' => '18602662345', 'label' => 'Call Vandrevala']
-                ];
+                    $aiData['ai_message'] = "I'm really concerned about what you just said. You are not alone, and there is help available.\n\nPlease reach out to these support lines in India immediately:\n📞 **iCall:** 9152987821 (Mon-Sat, 10 AM - 8 PM)\n📞 **AASRA:** 9820466726 (24x7)\n📞 **Vandrevala Foundation:** 1860 266 2345 (24x7)\n\nI am here to listen, but please consider calling one of these numbers right now.";
+                    $aiData['options'] = [
+                        ['id' => '9152987821', 'label' => 'Call iCall'],
+                        ['id' => '9820466726', 'label' => 'Call AASRA'],
+                        ['id' => '18602662345', 'label' => 'Call Vandrevala']
+                    ];
+                }
             }
 
             $this->repo->createMessage($session->id, 'ai', 'text', $aiData['ai_message'] ?? 'I am here for you.');
@@ -168,7 +185,6 @@ class AiCompanionService
                 'ui_mode' => $aiData['ui_mode'] ?? 'text_input',
                 'options' => $aiData['options'] ?? []
             ];
-
         } catch (\Exception $e) {
             Log::error("AI Companion Error: " . $e->getMessage());
             return [
