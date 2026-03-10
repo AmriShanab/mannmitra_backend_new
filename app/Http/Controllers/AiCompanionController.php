@@ -16,6 +16,7 @@ class AiCompanionController extends Controller
 {
     public function interact(Request $request)
     {
+        dd(123);
         // 1. Validate incoming request
         $request->validate([
             'input_type' => 'required|string|in:init,buttons,emoji_slider,text_input,voice_record,crisis_contacted',
