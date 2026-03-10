@@ -135,10 +135,8 @@ class AiCompanionService
         ";
 
         $userInstruction = "Recent Conversation:\n" . $recentMessages . "\n\nUser just triggered: " . $inputType;
-        
-        // UPDATE 1: Smarter 'init' Prompt to handle Post-Crisis
         if ($inputType === 'init') {
-            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just opened the app. Greet them warmly like a friend. Check the CONTEXT. If their recent messages show they were in a crisis or highly distressed, gently and safely check in on them to see how they are feeling now. CRITICAL: Because they just opened the app, DO NOT trigger 'crisis_cards'. Use 'emoji_slider' or 'buttons' to ease them back into a normal conversation.";
+            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just opened the app. Greet them warmly like a friend. Check the CONTEXT. If they had a negative mood score or stressful journal recently, gently check in on that specific thing.";
         }
 
         try {
@@ -149,32 +147,17 @@ class AiCompanionService
                 $this->repo->createJournalEntry($user->id, $aiData['journal_summary'], null, 'Auto-generated from text conversation.');
             }
 
-            // UPDATE 2: Backend Safety Net to completely block Ghost Crisis triggers
+            // Crisis Interceptor
             if (isset($aiData['ui_mode']) && $aiData['ui_mode'] === 'crisis_cards') {
-                
-                // If the user just opened the app, they can't be actively typing a crisis.
-                // The AI is hallucinating based on old history. We force a safe override.
-                if ($inputType === 'init') {
-                    $aiData['ui_mode'] = 'buttons';
-                    $aiData['ai_message'] = "Hey, I remember things were really tough last time we spoke. I'm so glad you're back. How are you feeling right now?";
-                    $aiData['options'] = [
-                        ['id' => 'feeling_better', 'label' => 'A bit better'],
-                        ['id' => 'still_struggling', 'label' => 'Still struggling'],
-                        ['id' => 'distract_me', 'label' => 'Just distract me']
-                    ];
-                } 
-                // Legitimate active crisis logic
-                else {
-                    $this->repo->flagLatestMessageAsCrisis($session->id);
-                    $this->repo->createCrisisAlert($session->id, 'AI Detected Crisis');
+                $this->repo->flagLatestMessageAsCrisis($session->id);
+                $this->repo->createCrisisAlert($session->id, 'AI Detected Crisis');
 
-                    $aiData['ai_message'] = "I'm really concerned about what you just said. You are not alone, and there is help available.\n\nPlease reach out to these support lines in India immediately:\n📞 **iCall:** 9152987821 (Mon-Sat, 10 AM - 8 PM)\n📞 **AASRA:** 9820466726 (24x7)\n📞 **Vandrevala Foundation:** 1860 266 2345 (24x7)\n\nI am here to listen, but please consider calling one of these numbers right now.";
-                    $aiData['options'] = [
-                        ['id' => '9152987821', 'label' => 'Call iCall'],
-                        ['id' => '9820466726', 'label' => 'Call AASRA'],
-                        ['id' => '18602662345', 'label' => 'Call Vandrevala']
-                    ];
-                }
+                $aiData['ai_message'] = "I'm really concerned about what you just said. You are not alone, and there is help available.\n\nPlease reach out to these support lines in India immediately:\n📞 **iCall:** 9152987821 (Mon-Sat, 10 AM - 8 PM)\n📞 **AASRA:** 9820466726 (24x7)\n📞 **Vandrevala Foundation:** 1860 266 2345 (24x7)\n\nI am here to listen, but please consider calling one of these numbers right now.";
+                $aiData['options'] = [
+                    ['id' => '9152987821', 'label' => 'Call iCall'],
+                    ['id' => '9820466726', 'label' => 'Call AASRA'],
+                    ['id' => '18602662345', 'label' => 'Call Vandrevala']
+                ];
             }
 
             $this->repo->createMessage($session->id, 'ai', 'text', $aiData['ai_message'] ?? 'I am here for you.');
