@@ -200,7 +200,7 @@ class AiCompanionController extends Controller
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
                 'Content-Type' => 'application/json',
-            ])->timeout(15)->post('https://api.openai.com/v1/chat/completions', [
+            ])->timeout(60)->post('https://api.openai.com/v1/chat/completions', [
                 'model' => 'gpt-4o',
                 'response_format' => ['type' => 'json_object'], // FORCES JSON OUTPUT
                 'messages' => [
@@ -227,9 +227,24 @@ class AiCompanionController extends Controller
                         'severity' => 'high',
                         'status' => 'pending'
                     ]);
+
+                    // OVERRIDE AI OUTPUT WITH HARDCODED HELPLINES
+                    $aiData['ai_message'] = "I'm really concerned about what you just said. You are not alone, and there is help available.\n\n" .
+                        "Please reach out to these support lines in India immediately:\n" .
+                        "📞 **iCall:** 9152987821 (Mon-Sat, 10 AM - 8 PM)\n" .
+                        "📞 **AASRA:** 9820466726 (24x7)\n" .
+                        "📞 **Vandrevala Foundation:** 1860 266 2345 (24x7)\n\n" .
+                        "I am here to listen, but please consider calling one of these numbers right now.";
+                    
+                    // OVERRIDE OPTIONS (Flutter will use these IDs to launch the dialer)
+                    $aiData['options'] = [
+                        ['id' => '9152987821', 'label' => 'Call iCall'],
+                        ['id' => '9820466726', 'label' => 'Call AASRA'],
+                        ['id' => '18602662345', 'label' => 'Call Vandrevala']
+                    ];
                 }
 
-                // Save AI's response
+                // Save AI's response (or the overridden crisis message)
                 Message::create([
                     'session_id' => $activeSession->id,
                     'sender' => 'ai',
