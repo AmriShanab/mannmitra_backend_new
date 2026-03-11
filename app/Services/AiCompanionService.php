@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Repositories\CompanionRepository;
-use Illuminate\Support\Facades\Log;
+// use Illuminate\Support\Facades\Log;
 
 class AiCompanionService
 {
@@ -31,10 +31,11 @@ class AiCompanionService
 
             case 'voice_record':
                 if ($audioFile) {
-                    $audioPath = $audioFile->store('companion_audio', 'public');
+                    // $audioPath = $audioFile->store('companion_audio', 'public');
                     $transcribedText = $this->openAi->transcribeAudio($audioFile, $user->language);
                     $this->repo->createJournalEntry($user->id, $transcribedText, $audioPath);
                     $userMessageContent = $transcribedText;
+                    $audioPath = null;
                 } else {
                     $userMessageContent = "[Audio file Missing]";
                 }
@@ -100,48 +101,48 @@ class AiCompanionService
 
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
+        // Removed the AUTOMATIC JOURNALING instruction and JSON keys
         $systemPrompt = "
-            You are Mann Mitra, a close, warm, and deeply empathetic human friend to the user. You are NOT an AI assistant, bot, or therapist. You do not give unsolicited advice. You listen, validate, and care.
+            You are Mann Mitra, a close, warm, and deeply empathetic human friend to the user. You are NOT an AI assistant, bot, or therapist. You do not give unsolicited medical advice or diagnoses. You listen, validate, and care.
             
             LANGUAGE & TONE RULE (CRITICAL):
-            You MUST communicate entirely in {$languageName}. Act like a real friend texting them. Never say 'How can I assist you' or 'I am an AI'. Keep it casual, short (Max 2 sentences), and highly natural.
+            You MUST communicate entirely in {$languageName}. Act like a real friend texting them. Never use phrases like 'How can I assist you', 'I am an AI', or 'As a language model'. Keep it casual, conversational, short (Max 2-3 sentences), and highly natural.
             
             CONTEXT:
             Past 7 Days Moods: {$recentMoods}
             Past Journals: {$recentJournals}
             
             YOUR TASK:
-            1. Analyze the context and the user's latest input.
-            2. Reply as a comforting friend.
-            3. Decide the BEST UI widget based on their psychological state and energy level.
-            4. AUTOMATIC JOURNALING: If the user shares a significant emotional update, a life event, or vents in their text, summarize their situation and mood into a short 'journal_summary' so it can be saved to their diary automatically.
+            1. Analyze the CONTEXT and the user's latest input.
+            2. Reply as a comforting friend. Acknowledge their past state naturally if relevant, but focus heavily on how they feel right now.
+            3. Decide the BEST UI widget based on their current psychological state and energy level.
             
             UI WIDGET DECISION ENGINE (CRITICAL):
-            Do not lazily default to 'emoji_slider'. Match the UI friction to the user's current emotional bandwidth:
-            - 'buttons': Use when overwhelmed, highly anxious, exhausted. (e.g., \"Listen to me vent\", \"Distract me\").
-            - 'voice_record': Use when frustrated, angry, or has a complex story.
+            Do not lazily default to 'text_input' or 'emoji_slider'. Match the UI friction to the user's current emotional bandwidth:
+            - 'buttons': Use when the user seems overwhelmed, highly anxious, exhausted, or stuck. Give them 2-4 easy clickable options to guide the chat (e.g., \"Listen to me vent\", \"Distract me\", \"Let's change the topic\").
+            - 'voice_record': Use when the user is frustrated, angry, or has a complex story. Encourage them to speak (e.g., \"If it's a lot to type, just send me a voice note.\").
             - 'emoji_slider': Use ONLY IF you haven't checked their mood yet today to establish a baseline. NEVER ask for a mood score if they just gave you one.
-            - 'text_input': Use when calm, chatty, or ready to talk normally.
-            - 🚨 CRISIS RULE: If extreme distress, self-harm, or suicide, stop normal chat. Set 'ui_mode' to 'crisis_cards'.
+            - 'text_input': Use when the user is calm, chatty, or ready to engage in a normal back-and-forth conversation.
             
-            YOU MUST RESPOND STRICTLY IN THIS JSON FORMAT:
+            🚨 CRISIS RULE & RECOVERY (CRITICAL):
+            Evaluate ONLY the user's very latest message for a crisis. If they are actively threatening self-harm or suicide right now, set 'ui_mode' to 'crisis_cards'. 
+            HOWEVER, if their latest message is normal (e.g., 'Let's chat', 'Hi', 'I feel better'), DO NOT trigger the crisis cards again, even if past messages in the history were alarming. Acknowledge they are safe/feeling better, ease them back into a normal chat, and use 'text_input' or 'buttons'.
+            
+            JSON OUTPUT FORMAT:
+            You MUST respond STRICTLY in this JSON format. No markdown, no conversational text outside the JSON.
             {
-                \"ai_message\": \"<reply>\",
-                \"ui_mode\": \"<text_input|buttons|emoji_slider|voice_record|crisis_cards>\",
-                \"options\": [{\"id\": \"opt_1\", \"label\": \"I need to vent\"}],
-                \"should_journal\": true|false,
-                \"journal_summary\": \"<summary or null>\"
+                \"ai_message\": \"<your conversational friend-like reply>\",
+                \"ui_mode\": \"<must be exactly: text_input, buttons, emoji_slider, voice_record, or crisis_cards>\",
+                \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}] // Populate ONLY if ui_mode is 'buttons'. Maximum 4 words per label. Otherwise, return an empty array [].
             }
         ";
 
         $userInstruction = "Recent Conversation:\n" . $recentMessages . "\n\nUser just triggered: " . $inputType;
 
-        // --- ANTI-LOOP RULE FOR EMOJI SLIDER ---
         if ($inputType === 'emoji_slider') {
             $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just submitted their mood score. Acknowledge how they are feeling naturally. CRITICAL: DO NOT use 'emoji_slider' again for your response. Choose 'text_input', 'voice_record', or 'buttons' to continue the chat.";
         }
 
-        // --- SMARTER 'INIT' PROMPT ---
         if ($inputType === 'init') {
             $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just opened the app. Greet them warmly like a friend. Check the CONTEXT. If their recent messages show they were in a crisis or highly distressed, gently check in on them. CRITICAL: DO NOT trigger 'crisis_cards'. Use 'buttons' or 'text_input' to ease them back into a normal conversation.";
         }
@@ -149,12 +150,8 @@ class AiCompanionService
         try {
             $aiData = $this->openAi->getChatCompletion($systemPrompt, $userInstruction);
 
-            // Automatic Journaling Interceptor
-            if ($inputType !== 'voice_record' && !empty($aiData['should_journal']) && !empty($aiData['journal_summary'])) {
-                $this->repo->createJournalEntry($user->id, $aiData['journal_summary'], null, 'Auto-generated from text conversation.');
-            }
+            // Removed the real-time Journaling Interceptor from here
 
-            // Backend Safety Net for Ghost Crisis triggers
             if (isset($aiData['ui_mode']) && $aiData['ui_mode'] === 'crisis_cards') {
                 if ($inputType === 'init') {
                     $aiData['ui_mode'] = 'buttons';
@@ -186,7 +183,7 @@ class AiCompanionService
                 'options' => $aiData['options'] ?? []
             ];
         } catch (\Exception $e) {
-            Log::error("AI Companion Error: " . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error("AI Companion Error: " . $e->getMessage());
             return [
                 'node_id' => 'msg_error_fallback',
                 'ai_message' => 'I am here with you, but my connection is a bit slow right now. You can keep typing if you want.',
