@@ -101,7 +101,6 @@ class AiCompanionService
 
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
-        // Removed the AUTOMATIC JOURNALING instruction and JSON keys
         $systemPrompt = "
             You are Mann Mitra, a close, warm, and deeply empathetic human friend to the user. You are NOT an AI assistant, bot, or therapist. You do not give unsolicited medical advice or diagnoses. You listen, validate, and care.
             
@@ -117,16 +116,15 @@ class AiCompanionService
             2. Reply as a comforting friend. Acknowledge their past state naturally if relevant, but focus heavily on how they feel right now.
             3. Decide the BEST UI widget based on their current psychological state and energy level.
             
-            UI WIDGET DECISION ENGINE (CRITICAL):
-            Do not lazily default to 'text_input' or 'emoji_slider'. Match the UI friction to the user's current emotional bandwidth:
-            - 'buttons': Use when the user seems overwhelmed, highly anxious, exhausted, or stuck. Give them 2-4 easy clickable options to guide the chat (e.g., \"Listen to me vent\", \"Distract me\", \"Let's change the topic\").
+            UI WIDGET DECISION ENGINE (CRITICAL - DO NOT GET STUCK IN LOOPS):
+            - 'text_input': THIS IS YOUR DEFAULT MODE. Use this for 85% of the conversation. Even if they were upset recently, if they are engaging with you now, give them the text box so they can freely express themselves.
+            - 'buttons': USE SPARINGLY. Only use this if the user explicitly says they don't know what to do, are totally paralyzed by anxiety, or you are asking a strict Yes/No question. DO NOT chain multiple button widgets in a row.
             - 'voice_record': Use when the user is frustrated, angry, or has a complex story. Encourage them to speak (e.g., \"If it's a lot to type, just send me a voice note.\").
             - 'emoji_slider': Use ONLY IF you haven't checked their mood yet today to establish a baseline. NEVER ask for a mood score if they just gave you one.
-            - 'text_input': Use when the user is calm, chatty, or ready to engage in a normal back-and-forth conversation.
             
             🚨 CRISIS RULE & RECOVERY (CRITICAL):
             Evaluate ONLY the user's very latest message for a crisis. If they are actively threatening self-harm or suicide right now, set 'ui_mode' to 'crisis_cards'. 
-            HOWEVER, if their latest message is normal (e.g., 'Let's chat', 'Hi', 'I feel better'), DO NOT trigger the crisis cards again, even if past messages in the history were alarming. Acknowledge they are safe/feeling better, ease them back into a normal chat, and use 'text_input' or 'buttons'.
+            HOWEVER, if their latest message is normal (e.g., 'Let's chat', 'Hi', 'I feel better'), DO NOT trigger the crisis cards again, even if past messages in the history were alarming. Acknowledge they are safe/feeling better, ease them back into a normal chat, and default to 'text_input'.
             
             JSON OUTPUT FORMAT:
             You MUST respond STRICTLY in this JSON format. No markdown, no conversational text outside the JSON.
@@ -139,18 +137,23 @@ class AiCompanionService
 
         $userInstruction = "Recent Conversation:\n" . $recentMessages . "\n\nUser just triggered: " . $inputType;
 
+        // --- 1. EMOJI SLIDER ANTI-LOOP ---
         if ($inputType === 'emoji_slider') {
-            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just submitted their mood score. Acknowledge how they are feeling naturally. CRITICAL: DO NOT use 'emoji_slider' again for your response. Choose 'text_input', 'voice_record', or 'buttons' to continue the chat.";
+            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just submitted their mood score. Acknowledge how they are feeling naturally. CRITICAL: DO NOT use 'emoji_slider' again for your response. Switch to 'text_input' so they can explain why they feel that way.";
+        }
+        
+        // --- 2. BUTTONS ANTI-LOOP ---
+        if ($inputType === 'buttons') {
+            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just selected a button option. Acknowledge their choice. CRITICAL: Try to move the conversation forward using 'text_input' so they have the freedom to type, unless you absolutely need them to make another strict choice.";
         }
 
+        // --- 3. INIT RECOVERY OVERRIDE ---
         if ($inputType === 'init') {
             $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just opened the app. Greet them warmly like a friend. Check the CONTEXT. If their recent messages show they were in a crisis or highly distressed, gently check in on them. CRITICAL: DO NOT trigger 'crisis_cards'. Use 'buttons' or 'text_input' to ease them back into a normal conversation.";
         }
 
         try {
             $aiData = $this->openAi->getChatCompletion($systemPrompt, $userInstruction);
-
-            // Removed the real-time Journaling Interceptor from here
 
             if (isset($aiData['ui_mode']) && $aiData['ui_mode'] === 'crisis_cards') {
                 if ($inputType === 'init') {
