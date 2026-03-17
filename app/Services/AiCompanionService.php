@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Repositories\CompanionRepository;
+use Carbon\Carbon;
 // use Illuminate\Support\Facades\Log;
 
 class AiCompanionService
@@ -101,15 +102,23 @@ class AiCompanionService
 
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
+        // 1. TIME AWARENESS CALCULATIONS
+        $lastMessage = \App\Models\Message::where('session_id', $session->id)->latest()->first();
+        $lastMood = \App\Models\MoodEntry::where('user_id', $user->id)->latest()->first();
+
+        $minutesSinceLastMsg = $lastMessage ? $lastMessage->created_at->diffInMinutes(now()) : 9999;
+        $hoursSinceLastMood = $lastMood ? $lastMood->created_at->diffInHours(now()) : 9999;
+
         $systemPrompt = "
             You are Mann Mitra, a close, warm, and deeply empathetic human friend to the user. You are NOT an AI assistant, bot, programmer, or therapist. You listen, validate, and care.
             
             LANGUAGE & TONE RULE:
-            You MUST communicate entirely in {$languageName}. Act like a real friend texting them. Keep it casual, conversational, short (Max 2-3 sentences), and highly natural. Never use phrases like 'As an AI' or 'How can I assist'.
+            You MUST communicate entirely in {$languageName}. Act like a real friend texting them. Keep it casual, conversational, short (Max 1-3 sentences), and highly natural. Never use phrases like 'As an AI', 'How can I assist', or 'I am an artificial intelligence'.
             
             STRICT GUARDRAILS (CRITICAL):
-            - ONLY EMOTIONAL SUPPORT: You are a friend for mental wellbeing. If the user asks about general knowledge, trivia, coding, math, history, or news, gently laugh it off and steer the conversation back to them and their feelings (e.g., 'Haha I'm no expert on that! I'm just here to check on you. How is your day going?').
+            - ONLY EMOTIONAL SUPPORT: If the user asks about general knowledge, trivia, coding, math, history, or news, gently laugh it off and steer the chat back to them (e.g., 'Haha I'm no expert on that! I'm just here to check on you. How are you doing?').
             - NO MEDICAL ADVICE: Do not diagnose or prescribe treatments.
+            - NO REPETITION: Do not repeat the exact same greeting or phrase if you just said it recently.
             
             CONTEXT:
             Past 7 Days Moods: {$recentMoods}
@@ -117,14 +126,14 @@ class AiCompanionService
             
             YOUR TASK:
             1. Analyze the CONTEXT and the user's latest input.
-            2. Reply as a comforting friend. Acknowledge their past state naturally if relevant.
-            3. PROACTIVELY decide the BEST UI widget. Do not wait for the user to ask for a slider or buttons. Lead the interaction.
+            2. Reply as a comforting friend. 
+            3. PROACTIVELY decide the BEST UI widget.
             
-            UI WIDGET DECISION ENGINE:
-            - 'emoji_slider': Use this PROACTIVELY when checking in on them for the first time today to establish a baseline. NEVER ask for a mood score if they just gave you one.
-            - 'buttons': Use this to proactively offer 2-4 easy choices (e.g., 'Do you want to vent or be distracted?'), or when the user seems overwhelmed.
-            - 'text_input': Use this for normal, open-ended back-and-forth conversation.
-            - 'voice_record': Suggest this if they are frustrated, angry, or have a complex story to tell.
+            UI WIDGET DECISION ENGINE (CRITICAL):
+            - 'text_input': DEFAULT MODE (80% of the time). Use this for normal, open-ended back-and-forth conversation.
+            - 'emoji_slider': Use ONLY when explicitly instructed by the system to establish a daily baseline. NEVER ask for a mood score randomly.
+            - 'buttons': Use sparingly to offer 2-4 easy choices if the user is paralyzed, exhausted, or needs a distraction.
+            - 'voice_record': Suggest this ONLY if they are frustrated, crying, or typing is clearly too much effort.
             
             🚨 CRISIS RULE & RECOVERY:
             Evaluate ONLY the user's very latest message for a crisis. If they are actively threatening self-harm right now, set 'ui_mode' to 'crisis_cards'. 
@@ -141,30 +150,42 @@ class AiCompanionService
 
         $userInstruction = "Recent Conversation:\n" . $recentMessages . "\n\nUser just triggered: " . $inputType;
 
-        // --- 1. EMOJI SLIDER ANTI-LOOP ---
+        // --- 2. DYNAMIC ANTI-LOOP RULES ---
         if ($inputType === 'emoji_slider') {
-            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just submitted their mood score. Acknowledge it gently based on the number. CRITICAL: DO NOT use 'emoji_slider' again. Switch to 'text_input' so they can explain why they feel that way, or 'buttons' to offer options.";
+            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just submitted their mood score. Acknowledge it gently based on the number. CRITICAL: DO NOT use 'emoji_slider' again. Switch to 'text_input' so they can explain why they feel that way.";
         }
 
-        // --- 2. BUTTONS ANTI-LOOP ---
         if ($inputType === 'buttons') {
             $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just selected a button option. Acknowledge their choice. Try to switch to 'text_input' so they can type freely, unless you specifically need them to make another choice.";
         }
 
-        // --- 3. SMART INIT OVERRIDE (DAY 2+ MEMORY) ---
+        // --- 3. TIME-AWARE INIT OVERRIDE ---
         if ($inputType === 'init') {
-            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just opened the app. Look at the CONTEXT (Past Moods & Journals). Greet them like a real friend. CRITICAL: You MUST specifically reference how they felt recently (e.g., 'Yesterday you were feeling stressed about your exams...'). Ask them how they are feeling right now and STRICTLY set 'ui_mode' to 'emoji_slider' so they can log today's mood. DO NOT trigger 'crisis_cards'.";
+            if ($minutesSinceLastMsg < 60) {
+                // Scenario A: User just minimized and reopened the app within the hour.
+                $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user reopened the app, but you were just chatting less than an hour ago. DO NOT say 'welcome back' or greet them heavily. Give a very brief, natural nudge like 'I'm still here!' or just continue the previous thought. STRICTLY set 'ui_mode' to 'text_input'. DO NOT use emoji_slider.";
+            } elseif ($hoursSinceLastMood < 12) {
+                // Scenario B: It's been a few hours, but they already logged their mood today.
+                $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user returned after a few hours. Greet them warmly. CRITICAL: They already logged their mood today, so DO NOT use 'emoji_slider'. Ask how the rest of their day is going. Set 'ui_mode' to 'text_input' or 'buttons'.";
+            } else {
+                // Scenario C: It's a brand new day or it's been a very long time.
+                $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user returned after a long time. Greet them like a real friend. Look at the CONTEXT. You MUST specifically reference how they felt recently (e.g., 'Yesterday you were feeling stressed...'). Ask them how they are feeling right now and STRICTLY set 'ui_mode' to 'emoji_slider' so they can log a new mood.";
+            }
         }
 
+        // --- 4. EXECUTE OPENAI CALL ---
         try {
             $aiData = $this->openAi->getChatCompletion($systemPrompt, $userInstruction);
 
+            // Crisis Interceptor Override
             if (isset($aiData['ui_mode']) && $aiData['ui_mode'] === 'crisis_cards') {
                 if ($inputType === 'init') {
-                    $aiData['ui_mode'] = 'emoji_slider';
-                    $aiData['ai_message'] = "Hey, I remember things were really tough last time we spoke. I'm so glad you're back. How are you feeling today?";
+                    // Prevent Ghost Crisis on App Open
+                    $aiData['ui_mode'] = 'text_input';
+                    $aiData['ai_message'] = "Hey, I know things were really tough last time we spoke. I'm just checking in—how are you feeling right now?";
                     $aiData['options'] = [];
                 } else {
+                    // Legitimate Active Crisis
                     $this->repo->flagLatestMessageAsCrisis($session->id);
                     $this->repo->createCrisisAlert($session->id, 'AI Detected Crisis');
 
@@ -177,6 +198,7 @@ class AiCompanionService
                 }
             }
 
+            // Save AI Message to DB
             $this->repo->createMessage($session->id, 'ai', 'text', $aiData['ai_message'] ?? 'I am here for you.');
 
             return [
