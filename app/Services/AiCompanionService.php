@@ -22,6 +22,7 @@ class AiCompanionService
         $session = $this->repo->getActiveSession($user->id);
         $userMessageContent = $inputValue;
         $audioPath = null;
+        $savedUserMessage = null;
 
         // 1. Process Input (Traffic Cop)
         switch ($inputType) {
@@ -60,16 +61,20 @@ class AiCompanionService
         // 2. Save User Message
         if ($userMessageContent) {
             $type = ($inputType === 'voice_record') ? 'audio' : 'text';
-            $this->repo->createMessage($session->id, 'user', $type, $userMessageContent, $audioPath);
+            $savedUserMessage = $this->repo->createMessage($session->id, 'user', $type, $userMessageContent, $audioPath);
         }
 
+        $hasMoodToday = \App\Models\MoodEntry::where('user_id', $user->id)
+            ->whereDate('created_at', \Carbon\Carbon::today())
+            ->exists();
+
         // 3. Day 1 Check (Onboarding)
-        if ($this->repo->getTotalUserMessages($user->id) <= 1 && $inputType === 'init') {
+        if ($this->repo->getTotalUserMessages($user->id) <= 1 && $inputType === 'init' && !$hasMoodToday) {
             return $this->handleDayOneOnboarding($session, $user);
         }
 
         // 4. Gather Context & AI Interaction (Day 2+)
-        return $this->handleAiConversation($session, $user, $inputType);
+        return $this->handleAiConversation($session, $user, $inputType, $savedUserMessage?->id);
     }
 
     private function handleDayOneOnboarding($session, $user)
@@ -84,17 +89,12 @@ class AiCompanionService
         return [
             'node_id' => 'msg_welcome_1',
             'ai_message' => $welcomeText,
-            'ui_mode' => 'buttons',
-            'options' => [
-                ['id' => 'feel_good', 'label' => 'Feeling good'],
-                ['id' => 'feel_anxious', 'label' => 'A bit anxious'],
-                ['id' => 'feel_low', 'label' => 'Feeling low'],
-                ['id' => 'just_exploring', 'label' => 'Just exploring']
-            ]
+            'ui_mode' => 'emoji_slider',
+            'options' => []
         ];
     }
 
-    private function handleAiConversation($session, $user, $inputType)
+    private function handleAiConversation($session, $user, $inputType, $currentMessageId = null)
     {
         $recentMessages = $this->repo->getRecentMessages($session->id);
         $recentMoods = $this->repo->getRecentMoods($user->id);
@@ -103,7 +103,11 @@ class AiCompanionService
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
         // 1. TIME AWARENESS & CALENDAR DATE CHECKS
-        $lastMessage = \App\Models\Message::where('session_id', $session->id)->latest()->first();
+        $lastMessageQuery = \App\Models\Message::where('session_id', $session->id);
+        if ($currentMessageId) {
+            $lastMessageQuery->where('id', '!=', $currentMessageId);
+        }
+        $lastMessage = $lastMessageQuery->latest()->first();
         $minutesSinceLastMsg = $lastMessage ? $lastMessage->created_at->diffInMinutes(now()) : 9999;
         
         // Strict Calendar Check: Did they log a mood TODAY?
@@ -124,6 +128,7 @@ class AiCompanionService
             - NEVER repeat the exact same greeting or phrase if you just said it in the recent history.
             - NEVER write long, essay-like paragraphs.
             - NEVER choose 'emoji_slider' on your own unless the system explicitly commands you to.
+            - NEVER choose 'buttons' during first mood capture flow when the system asks for today's mood log via emoji_slider.
             
             CONTEXT:
             Past 7 Days Moods: {$recentMoods}
@@ -199,6 +204,19 @@ class AiCompanionService
                         ['id' => '9820466726', 'label' => 'Call AASRA'],
                         ['id' => '18602662345', 'label' => 'Call Vandrevala']
                     ];
+                }
+            }
+
+            // Deterministic guardrails so UI policy never depends only on model compliance.
+            if ($inputType === 'init') {
+                if ($hasMoodToday && (($aiData['ui_mode'] ?? null) === 'emoji_slider')) {
+                    $aiData['ui_mode'] = 'text_input';
+                    $aiData['options'] = [];
+                }
+
+                if (!$hasMoodToday && $minutesSinceLastMsg >= 60 && (($aiData['ui_mode'] ?? null) !== 'emoji_slider')) {
+                    $aiData['ui_mode'] = 'emoji_slider';
+                    $aiData['options'] = [];
                 }
             }
 
