@@ -7,7 +7,9 @@ use App\Http\Requests\StoreMoodRequest;
 use App\Http\Resources\MoodResource;
 use App\Services\MoodService;
 use App\Traits\ApiResponse;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class MoodController extends Controller
 {
@@ -53,5 +55,39 @@ class MoodController extends Controller
         $data = $this->moodService->generateWeeklySummary($request->user()->id);
 
         return $this->successResponse($data);
+    }
+
+    public function dailyVibe(Request $request)
+    {
+        $user = Auth::user();
+        $targetDate = \Carbon\Carbon::today()->toDateString();
+
+        // This will now either be a number (e.g., 80) or null
+        $moodPercentage = $this->moodService->getMoodByDate($user->id, $targetDate);
+
+        // Check if the service returned null
+        if (is_null($moodPercentage)) {
+            return response()->json([
+                'status' => true, // Better to use boolean true instead of string 'true'
+                'message' => 'No mood record for this date',
+                'data' => [
+                    'date' => $targetDate,
+                    'has_mood' => false,
+                    'score' => null,
+                    'percentage' => null,
+                ]
+            ]);
+        }
+
+        // If it's not null, return the success response
+        return response()->json([
+            'status' => true,
+            'message' => 'Daily vibe retrieved successfully',
+            'data' => [
+                'date' => $targetDate,
+                'has_mood' => true,
+                'percentage' => round($moodPercentage, 0),
+            ]
+        ]);
     }
 }

@@ -43,4 +43,12 @@ class MoodRepositary implements MoodRepositoryInterface
         ->get(['primary_mood', 'created_at']);
     }
 
+    public function getEntryByDate($userId, $date)
+    {
+        return MoodEntry::where('user_id', $userId)
+        ->whereDate('created_at', $date)
+        ->first();
+
+    }
+
 }

@@ -28,6 +28,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum'])->group(function () {
 
         Route::post('/companion/interact', [AiCompanionController::class, 'interact']);
+        // Route::get('/mood/daily-vibe', [MoodController::class, 'dailyVibe']);
 
         Route::controller(UserController::class)->group(function () {
             Route::get('/', 'me');
@@ -40,6 +41,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/check-required', 'checkRequired');
             Route::get('/daily-summary', 'dailySummary');
             Route::get('/weekly-summary', 'weeklySummary');
+            Route::get('/daily-vibe', 'dailyVibe');
         });
 
         Route::post('journal/reflection', [JournalController::class, 'generateReflection']);

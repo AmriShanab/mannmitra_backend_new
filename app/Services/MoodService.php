@@ -128,4 +128,17 @@ class MoodService
 
         return $result;
     }
+
+    public function getMoodByDate($userId, $date)
+    {
+        $userMood = $this->moodRepo->getEntryByDate($userId, $date);
+
+        if (!$userMood) {
+            return null;
+        }
+
+        $percentage = ($userMood->primary_mood / 10) * 100;
+
+        return $percentage;
+    }
 }

@@ -9,4 +9,5 @@ interface MoodRepositoryInterface
     public function hasEntryToday($userId);
     public function getEntriesByDateRange($userId, $startDate, $endDate);
     public function getEntriesSince($userId, $date);
+    public function getEntryByDate($userId, $date);
 }
