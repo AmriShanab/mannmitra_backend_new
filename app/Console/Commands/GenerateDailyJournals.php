@@ -92,11 +92,12 @@ class GenerateDailyJournals extends Command
 
                 $aiData = $this->openAi->getChatCompletion($systemPrompt, $userInstruction);
 
-                if (!empty($aiData['journal_summary'])) {
+             if (!empty($aiData['journal_summary'])) {
                     JournalEntry::create([
                         'user_id' => $user->id,
                         'title' => 'Daily Reflection',
                         'content' => $aiData['journal_summary'],
+                        'mood_snapshot' => $todayMood ? $todayMood->primary_mood : null, // <-- ADDED THIS LINE
                         'ai_reflection' => 'Auto-generated daily summary from text chats.',
                     ]);
                     $this->info("Successfully generated daily journal for User ID {$user->id}");
