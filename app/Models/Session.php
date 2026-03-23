@@ -24,4 +24,12 @@ class Session extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * Get the messages for the session.
+     */
+    public function messages()
+    {
+        return $this->hasMany(Message::class);
+    }
 }

@@ -12,7 +12,7 @@ class Message extends Model
         'session_id', 'sender', 'type', 'content', 'audio_path', 'is_crisis'
     ];
 
-    public function session ()
+    public function session()
     {
         return $this->belongsTo(Session::class);
     }
