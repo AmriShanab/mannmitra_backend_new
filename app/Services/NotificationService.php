@@ -17,7 +17,7 @@ class NotificationService
         $this->messaging = $factory->createMessaging();
     }
 
-  public function sendToUser($fcmToken, $title, $body, $data = [])
+    public function sendToUser($fcmToken, $title, $body, $data = [])
     {
         if (!$fcmToken) return false;
 
@@ -29,19 +29,19 @@ class NotificationService
                 ->withData($data);
 
             $this->messaging->send($message);
-            
+
             // ADD THIS: Log successes so you know it worked!
             \Illuminate\Support\Facades\Log::info("FCM Success: Sent to token ending in " . substr($fcmToken, -6));
-            
+
             return true;
         } catch (\Exception $e) {
             $errorMessage = $e->getMessage();
             \Illuminate\Support\Facades\Log::error("FCM Error: " . $errorMessage);
-            
+
             // AUTO-CLEAN DEAD TOKENS
             if (
-                str_contains($errorMessage, 'Requested entity was not found') || 
-                str_contains($errorMessage, 'NotRegistered') || 
+                str_contains($errorMessage, 'Requested entity was not found') ||
+                str_contains($errorMessage, 'NotRegistered') ||
                 str_contains($errorMessage, 'not a valid FCM registration token')
             ) {
                 // Find the user with this dead token and wipe it

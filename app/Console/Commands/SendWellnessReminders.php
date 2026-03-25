@@ -4,22 +4,20 @@ namespace App\Console\Commands;
 
 use App\Models\User;
 use App\Jobs\SendPersonalizedPushJob;
-use Carbon\Carbon;
 use Illuminate\Console\Command;
 
 class SendWellnessReminders extends Command
 {
     protected $signature = 'app:send-wellness-reminders';
-    protected $description = 'Dispatch jobs to send personalized wellness reminders';
+    protected $description = 'Dispatch jobs to send personalized wellness reminders to ALL active users';
 
     public function handle()
     {
-        $this->info('Dispatching Wellness Jobs to the Queue...');
+        $this->info('Dispatching Wellness Jobs to the Queue for ALL users...');
+
+        // Fetch ALL anonymous users who have an FCM token (No mood filter!)
         User::where('role', 'anonymous')
             ->whereNotNull('fcmToken')
-            ->whereDoesntHave('moodEntries', function ($query) {
-                $query->whereDate('created_at', Carbon::today());
-            })
             ->chunk(500, function ($users) {
                 foreach ($users as $user) {
                     // Instantly push this user to the background queue
