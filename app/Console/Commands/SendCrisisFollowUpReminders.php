@@ -14,18 +14,23 @@ class SendCrisisFollowUpReminders extends Command
 
     public function handle()
     {
-        $this->info("Dispatching crisis follow-up reminder jobs...");
+        $this->info("Finding users who had a low mood OR a crisis alert 2 days ago...");
 
         User::where('role', 'anonymous')
             ->whereNotNull('fcmToken')
-            ->whereHas('moodEntries', function ($query) {
-                // 1. They logged a mood exactly 2 days ago...
-                $query->whereDate('created_at', Carbon::today()->subDays(2))
-                      ->where('primary_mood', '<=', 3);
+            ->where(function ($query) {
+                // CONDITION A: They logged a low mood exactly 2 days ago...
+                $query->whereHas('moodEntries', function ($subQuery) {
+                    $subQuery->whereDate('created_at', Carbon::today()->subDays(2))
+                        ->where('primary_mood', '<=', 3);
+                })
+                    // CONDITION B: ...OR they triggered a crisis alert exactly 2 days ago
+                    ->orWhereHas('crisisAlerts', function ($subQuery) {
+                        $subQuery->whereDate('created_at', Carbon::today()->subDays(2));
+                    });
             })
+            // AND they haven't checked in since then (yesterday or today)
             ->whereDoesntHave('moodEntries', function ($query) {
-                // 2. AND they have NOT logged any moods SINCE then (yesterday or today)
-                // This checks anything greater than the very end of 2 days ago
                 $query->where('created_at', '>', Carbon::today()->subDays(2)->endOfDay());
             })
             ->chunk(500, function ($users) {
