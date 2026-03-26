@@ -15,12 +15,10 @@ class SendWellnessReminders extends Command
     {
         $this->info('Dispatching Wellness Jobs to the Queue for ALL users...');
 
-        // Fetch ALL anonymous users who have an FCM token (No mood filter!)
         User::where('role', 'anonymous')
             ->whereNotNull('fcmToken')
             ->chunk(500, function ($users) {
                 foreach ($users as $user) {
-                    // Instantly push this user to the background queue
                     SendPersonalizedPushJob::dispatch($user);
                 }
             });
