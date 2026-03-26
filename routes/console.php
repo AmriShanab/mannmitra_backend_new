@@ -13,3 +13,4 @@ Schedule::command('app:send-wellness-reminders')->dailyAt('17:00')->timezone('As
 Schedule::command('companion:generate-weekly-journals')->weeklyOn(0, '23:59')->timezone('Asia/Kolkata');
 Schedule::command('closed:expired:appointments')->daily();
 Schedule::command('companion:generate-daily-journals')->dailyAt('18:00');
+Schedule::command('app:send-crisis-follow-up')->dailyAt('12:25');
