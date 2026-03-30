@@ -92,10 +92,10 @@ class AiCompanionService
 
             case UserIntent::NEEDS_DISTRACTION:
                 return $this->handleDistractionRoute($session, $user, $inputType, $savedUserMessage?->id);
-            
+
             case UserIntent::VENTING_SAD:
             default:
-                return $this->handleVentingRoute($session, $user, $inputType, $savedUserMessage?->id);  
+                return $this->handleVentingRoute($session, $user, $inputType, $savedUserMessage?->id);
         }
     }
 
@@ -118,13 +118,13 @@ class AiCompanionService
 
     private function classifyUserIntent($inputValue, $userLanguage)
     {
-       if(empty(trim($inputValue))){
+        if (empty(trim($inputValue))) {
             return UserIntent::HAPPY_CASUAL;
-       }
+        }
 
-       $languageName = ($userLanguage === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+        $languageName = ($userLanguage === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
-       $systemPrompt = "
+        $systemPrompt = "
             You are an ultra-fast triage routing assistant for a mental health app.
             Your ONLY job is to analyze the user's latest message and classify their emotional intent.
             
@@ -154,7 +154,7 @@ class AiCompanionService
             if (isset($response['intent']) && in_array($response['intent'], \App\Enums\UserIntent::all())) {
                 return $response['intent'];
             }
-            
+
             return UserIntent::VENTING_SAD;
         } catch (\Exception $e) {
             Log::warning('Triage Classification Failed: ' . $e->getMessage());
@@ -270,30 +270,42 @@ class AiCompanionService
 
     private function handleDistractionRoute($session, $user, $inputType, $currentMessageId)
     {
+        $recentMessages = $this->repo->getRecentMessages($session->id);
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
         $systemPrompt = "
-            You are Mann Mitra. The user is feeling anxious, overthinking, bored, or specifically asked to be distracted.
+            You are Mann Mitra. The user wants a distraction to take their mind off things.
+            
+            CRITICAL ANTI-LOOP RULE (ACTUALLY DO IT!):
+            Look at the user's latest message in the Recent Conversation context. 
+            - If they asked for a 'joke', you MUST actually tell a funny joke right now in your 'ai_message'! 
+            - If they asked for a 'fun fact', you MUST provide an interesting fact right now.
+            - If they asked for a 'breathing exercise', guide them through one (e.g., 'Breathe in for 4 seconds...').
+            - If they want to 'play a word game', start the game! (e.g., 'I am thinking of an animal that starts with E...').
+            DO NOT just say 'Let's do something fun' and offer the same menu again. Fulfill the request immediately!
             
             TONE RULES:
             - Communicate entirely in {$languageName}.
-            - Be light, engaging, and redirecting. Do not ask deep emotional questions right now.
-            - Validate that taking a break from thinking is a great idea.
+            - Be lighthearted, engaging, and supportive.
             
-            UI WIDGET DECISION ENGINE (BUTTON-FIRST):
-            - You MUST use 'buttons'. 
-            - Provide 3 distinct, fun, or grounding distraction options.
-            - Examples: 'Tell me a joke', 'Breathing exercise', 'Random fun fact', 'Play a word game'.
+            UI WIDGET DECISION ENGINE:
+            - If you are playing a word game where they need to guess, strictly set 'ui_mode' to 'text_input'.
+            - If you just told a joke or a fact, set 'ui_mode' to 'buttons' and offer NEW follow-up options (e.g., 'Another joke!', 'Tell me a fact', 'I feel better').
+            
+            CONTEXT:
+            Recent Conversation: {$recentMessages}
             
             JSON OUTPUT FORMAT (STRICT):
             {
-                \"ai_message\": \"<lighthearted, engaging reply>\",
-                \"ui_mode\": \"buttons\",
+                \"ai_message\": \"<your joke, fact, or engaging reply>\",
+                \"ui_mode\": \"<buttons or text_input>\",
                 \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
             }
         ";
 
-        $userInstruction = "User's latest input type: " . $inputType;
+        // Change the instruction so the AI knows to act on the context, not just look at the input type
+        $userInstruction = "Please execute the distraction based on my latest message.";
+
         return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
     }
 
