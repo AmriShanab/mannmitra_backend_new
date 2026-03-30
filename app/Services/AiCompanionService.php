@@ -74,9 +74,13 @@ class AiCompanionService
             return $this->handleDayOneOnboarding($session, $user);
         }
 
+        if ($inputType === 'init' && !$hasMoodToday) {
+            return $this->handleDailyMoodCheckin($session, $user);
+        }
+
         // 4. The Triage Step: Classify emotional intent
         $intent = ($inputType === 'init')
-            ? UserIntent::HAPPY_CASUAL
+            ? \App\Enums\UserIntent::HAPPY_CASUAL
             : $this->classifyUserIntent($inputValue, $user->language);
 
         // 5. The Router: Send them to the specialized Therapist Prompt
@@ -162,6 +166,23 @@ class AiCompanionService
         }
     }
 
+    private function handleDailyMoodCheckin($session, $user)
+    {
+        $welcomeText = "Hi {$user->name}! Welcome back. How are you feeling today?";
+        if ($user->language === 'hi') {
+            $welcomeText = "Namaste {$user->name}! Aaj aap kaisa mehsoos kar rahe hain?";
+        }
+
+        $this->repo->createMessage($session->id, 'ai', 'text', $welcomeText);
+
+        return [
+            'node_id' => 'msg_daily_mood_' . time(),
+            'ai_message' => $welcomeText,
+            'ui_mode' => 'emoji_slider',
+            'options' => []
+        ];
+    }
+
     // =========================================================================
     // PHASE 3: SPECIALIZED ROUTE HANDLERS
     // =========================================================================
@@ -219,11 +240,12 @@ class AiCompanionService
             - Keep it conversational and brief (Max 2 sentences).
             - Do not bring up heavy emotional topics unless they do.
 
-            UI WIDGET DECISION ENGINE:
-            - Default to 'buttons' to keep the conversation flowing effortlessly. 
-            - Provide fun or engaging button choices (e.g., 'Tell me more!', 'Just relaxing now', 'Change the topic').
-            - If you ask them a direct question about their day, you can use 'text_input'.
-
+           UI WIDGET DECISION ENGINE (DYNAMIC UI):
+            - If the user explicitly asks to speak, record audio, or use voice, set 'ui_mode' to 'voice_record'.
+            - If you are asking them an open-ended question about their day or an event, set 'ui_mode' to 'text_input'.
+            - If you are offering a quick fun choice to guide the conversation (e.g., 'Tell me more', 'Change the topic'), set 'ui_mode' to 'buttons'.
+            - Mix 'text_input' and 'buttons' naturally. Do not make it feel like a continuous multiple-choice quiz.
+            
             CONTEXT:
             Recent Conversation: {$recentMessages}
             
@@ -325,12 +347,11 @@ class AiCompanionService
             - NEVER use 'toxic positivity' (e.g., Do NOT say 'Cheer up', 'Look on the bright side', or 'It will be okay!').
             - Keep your response to a maximum of 2 short sentences.
 
-            UI WIDGET DECISION ENGINE (CRITICAL 'BUTTON-FIRST' POLICY):
-            Because the user is drained, typing is exhausting for them. 
-            - You MUST set 'ui_mode' to 'buttons' almost every time.
-            - Provide 2 to 4 gentle, low-effort options for them to click.
-            - Keep button labels under 4 words (e.g., 'I just need a hug', 'Let me vent more', 'Can we distract me?').
-            - ONLY use 'text_input' if they explicitly ask an open-ended question that requires typing.
+         UI WIDGET DECISION ENGINE (DYNAMIC UI):
+            - If the user explicitly asks to speak, record audio, or use voice, set 'ui_mode' to 'voice_record'.
+            - If you are asking a deep or open-ended question (e.g., 'What exactly happened?', 'How did that make you feel?'), you MUST set 'ui_mode' to 'text_input'.
+            - If you are just offering comfort, a quick choice, or if the user seems too exhausted to type, set 'ui_mode' to 'buttons' (Max 2-4 options).
+            - DO NOT use buttons for every single reply. Mix 'text_input' and 'buttons' so it feels like a natural human chat.\
 
             CONTEXT:
             Past 7 Days Moods: {$recentMoods}
