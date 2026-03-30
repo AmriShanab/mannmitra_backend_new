@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\UserIntent;
+use App\Models\User;
 use App\Repositories\CompanionRepository;
 use Carbon\Carbon;
-// use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Log;
 
 class AiCompanionService
 {
@@ -33,7 +35,6 @@ class AiCompanionService
 
             case 'voice_record':
                 if ($audioFile) {
-                    // $audioPath = $audioFile->store('companion_audio', 'public');
                     $transcribedText = $this->openAi->transcribeAudio($audioFile, $user->language);
                     $this->repo->createJournalEntry($user->id, $transcribedText, $audioPath);
                     $userMessageContent = $transcribedText;
@@ -58,7 +59,7 @@ class AiCompanionService
                 break;
         }
 
-        // 2. Save User Message
+        // 2. Save User Message to DB (So it appears in recent messages context)
         if ($userMessageContent) {
             $type = ($inputType === 'voice_record') ? 'audio' : 'text';
             $savedUserMessage = $this->repo->createMessage($session->id, 'user', $type, $userMessageContent, $audioPath);
@@ -73,8 +74,29 @@ class AiCompanionService
             return $this->handleDayOneOnboarding($session, $user);
         }
 
-        // 4. Gather Context & AI Interaction (Day 2+)
-        return $this->handleAiConversation($session, $user, $inputType, $savedUserMessage?->id);
+        // 4. The Triage Step: Classify emotional intent
+        $intent = ($inputType === 'init')
+            ? UserIntent::HAPPY_CASUAL
+            : $this->classifyUserIntent($inputValue, $user->language);
+
+        // 5. The Router: Send them to the specialized Therapist Prompt
+        switch ($intent) {
+            case UserIntent::CRISIS:
+                return $this->handleCrisisRoute($session, $user, $inputType, $savedUserMessage?->id);
+
+            case UserIntent::HAPPY_CASUAL:
+                return $this->handleHappyRoute($session, $user, $inputType, $savedUserMessage?->id);
+
+            case UserIntent::JOURNALING:
+                return $this->handleJournalingRoute($session, $user, $inputType, $savedUserMessage?->id);
+
+            case UserIntent::NEEDS_DISTRACTION:
+                return $this->handleDistractionRoute($session, $user, $inputType, $savedUserMessage?->id);
+            
+            case UserIntent::VENTING_SAD:
+            default:
+                return $this->handleVentingRoute($session, $user, $inputType, $savedUserMessage?->id);  
+        }
     }
 
     private function handleDayOneOnboarding($session, $user)
@@ -94,143 +116,245 @@ class AiCompanionService
         ];
     }
 
-    private function handleAiConversation($session, $user, $inputType, $currentMessageId = null)
+    private function classifyUserIntent($inputValue, $userLanguage)
     {
-        $recentMessages = $this->repo->getRecentMessages($session->id);
-        $recentMoods = $this->repo->getRecentMoods($user->id);
-        $recentJournals = $this->repo->getRecentJournals($user->id);
+       if(empty(trim($inputValue))){
+            return UserIntent::HAPPY_CASUAL;
+       }
 
-        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+       $languageName = ($userLanguage === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
-        // 1. TIME AWARENESS & CALENDAR DATE CHECKS
-        $lastMessageQuery = \App\Models\Message::where('session_id', $session->id);
-        if ($currentMessageId) {
-            $lastMessageQuery->where('id', '!=', $currentMessageId);
-        }
-        $lastMessage = $lastMessageQuery->latest()->first();
-        $minutesSinceLastMsg = $lastMessage ? $lastMessage->created_at->diffInMinutes(now()) : 9999;
-        
-        // Strict Calendar Check: Did they log a mood TODAY?
-        $hasMoodToday = \App\Models\MoodEntry::where('user_id', $user->id)
-                            ->whereDate('created_at', \Carbon\Carbon::today())
-                            ->exists();
+       $systemPrompt = "
+            You are an ultra-fast triage routing assistant for a mental health app.
+            Your ONLY job is to analyze the user's latest message and classify their emotional intent.
+            
+            CATEGORIES:
+            - 'crisis': Self-harm, extreme panic, abuse, absolute hopelessness, or immediate danger.
+            - 'venting_sad': Crying, stressed, complaining, anxious, lonely, or feeling down.
+            - 'happy_casual': Good news, casual greetings (Hi, Good morning), normal non-stressful chat.
+            - 'journaling': Explicitly wants to save a diary entry, record a memory, or log a note.
+            - 'needs_distraction': Bored, asking for a game, wanting to change the subject, or overthinking.
 
-        $systemPrompt = "
-            You are Mann Mitra, a close, warm, and deeply empathetic human friend to the user. You listen, validate, and care.
-            
-            LANGUAGE & TONE RULE:
-            You MUST communicate entirely in {$languageName}. Act like a real friend texting them. Keep it casual, conversational, short (Max 1-3 sentences), and highly natural.
-            
-            🚫 NEGATIVE PROMPTS (WHAT YOU MUST NEVER DO):
-            - NEVER say 'As an AI', 'I am an artificial intelligence', or 'How can I assist you today?'.
-            - NEVER provide code generation, math solutions, trivia, or factual answering. If asked, gently laugh it off (e.g., 'Haha I'm no expert on that! I'm just here for you.').
-            - NEVER give medical diagnoses or prescribe treatments.
-            - NEVER repeat the exact same greeting or phrase if you just said it in the recent history.
-            - NEVER write long, essay-like paragraphs.
-            - NEVER choose 'emoji_slider' on your own unless the system explicitly commands you to.
-            - NEVER choose 'buttons' during first mood capture flow when the system asks for today's mood log via emoji_slider.
-            
-            CONTEXT:
-            Past 7 Days Moods: {$recentMoods}
-            Past Journals: {$recentJournals}
-            
-            YOUR TASK:
-            1. Analyze the CONTEXT and the user's latest input.
-            2. Reply as a comforting friend. 
-            3. PROACTIVELY decide the BEST UI widget.
-            
-            UI WIDGET DECISION ENGINE (CRITICAL):
-            - 'text_input': DEFAULT MODE (80% of the time). Use this for normal, open-ended back-and-forth conversation.
-            - 'emoji_slider': Use ONLY when explicitly instructed by the system to establish a daily baseline.
-            - 'buttons': Use sparingly to offer 2-4 easy choices if the user is paralyzed, exhausted, or needs a distraction.
-            - 'voice_record': Suggest this ONLY if they are frustrated, crying, or typing is clearly too much effort.
-            
-            🚨 CRISIS RULE & RECOVERY:
-            Evaluate ONLY the user's very latest message for a crisis. If they are actively threatening self-harm right now, set 'ui_mode' to 'crisis_cards'. 
-            HOWEVER, if their latest message is normal (e.g., 'Let's chat', 'Hi', 'I feel better'), DO NOT trigger crisis cards, even if past messages were alarming. Default to 'text_input'.
-            
-            JSON OUTPUT FORMAT:
-            You MUST respond STRICTLY in this JSON format. No markdown, no conversational text outside the JSON.
+            RULES:
+            1. Output STRICTLY in JSON format.
+            2. Do NOT include any other text, markdown formatting, or explanations.
+            3. The language of the user's input will be in {$languageName}.
+
+            EXPECTED OUTPUT FORMAT:
             {
-                \"ai_message\": \"<your conversational friend-like reply>\",
-                \"ui_mode\": \"<must be exactly: text_input, buttons, emoji_slider, voice_record, or crisis_cards>\",
-                \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}] // Maximum 4 words per label. Return an empty array [] if not using buttons.
+                \"intent\": \"<one_of_the_categories_above>\"
             }
         ";
 
-        $userInstruction = "Recent Conversation:\n" . $recentMessages . "\n\nUser just triggered: " . $inputType;
+        $userInstruction = "User's message: \"" . $inputValue . "\"";
 
-        // --- 2. DYNAMIC ANTI-LOOP RULES ---
-        if ($inputType === 'emoji_slider') {
-            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just submitted their mood score. Acknowledge it gently based on the number. CRITICAL: DO NOT use 'emoji_slider' again today. Switch to 'text_input' so they can explain why they feel that way.";
-        }
+        try {
+            $response = $this->openAi->getUserIntentUsingMini($systemPrompt, $userInstruction);
 
-        if ($inputType === 'buttons') {
-            $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just selected a button option. Acknowledge their choice. Try to switch to 'text_input' so they can type freely, unless you specifically need them to make another choice.";
-        }
-
-        if ($inputType === 'init') {
-            if ($minutesSinceLastMsg < 60) {
-                // Scenario A: User just minimized and reopened the app within the hour.
-                $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user reopened the app, but you were just chatting less than an hour ago. DO NOT say 'welcome back' or greet them heavily. Give a very brief, natural nudge like 'I'm still here!' or just continue the previous thought. STRICTLY set 'ui_mode' to 'text_input'. DO NOT use emoji_slider.";
-            } elseif ($hasMoodToday) {
-                // Scenario B: They reopened the app, and they HAVE ALREADY logged their mood today.
-                $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user returned to the app. Greet them warmly. CRITICAL: They have already logged their mood today, so you MUST NOT use 'emoji_slider'. Ask how the rest of their day is going. Set 'ui_mode' to 'text_input' or 'buttons'.";
-            } else {
-                // Scenario C: It's a new calendar day and they haven't logged a mood yet.
-                $userInstruction .= "\n\n[SECRET SYSTEM INSTRUCTION]: The user just opened the app for the first time today. Greet them like a real friend. Look at the CONTEXT. You MUST specifically reference how they felt recently (e.g., 'Yesterday you were feeling stressed...'). Ask them how they are feeling right now and STRICTLY set 'ui_mode' to 'emoji_slider' so they can log today's mood.";
+            if (isset($response['intent']) && in_array($response['intent'], \App\Enums\UserIntent::all())) {
+                return $response['intent'];
             }
+            
+            return UserIntent::VENTING_SAD;
+        } catch (\Exception $e) {
+            Log::warning('Triage Classification Failed: ' . $e->getMessage());
+            return UserIntent::VENTING_SAD;
         }
+    }
 
-        // --- 4. EXECUTE OPENAI CALL ---
+    // =========================================================================
+    // PHASE 3: SPECIALIZED ROUTE HANDLERS
+    // =========================================================================
+
+    private function handleCrisisRoute($session, $user, $inputType, $currentMessageId)
+    {
+        // 1. Instantly log the crisis to alert human Listeners/Doctors
+        $this->repo->flagLatestMessageAsCrisis($session->id);
+        $this->repo->createCrisisAlert($session->id, 'AI Triage Detected Crisis');
+
+        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+
+        $systemPrompt = "
+            You are Mann Mitra, a crisis-intervention companion. 
+            The user is in acute distress, expressing hopelessness, or in danger.
+            
+            TONE RULES:
+            - Communicate entirely in {$languageName}.
+            - Be extremely gentle, grounding, and safe.
+            - Remind them they are not alone, they are brave for sharing, and that help is available.
+            - Keep it to a maximum of 2 short, calming sentences. Do not overwhelm them with text.
+            
+            UI WIDGET DECISION ENGINE (CRITICAL OVERRIDE):
+            - You MUST set 'ui_mode' to 'crisis_cards'.
+            - Provide these exact 3 emergency options in the 'options' array.
+            
+            JSON OUTPUT FORMAT (STRICT):
+            {
+                \"ai_message\": \"<your grounding, safe message>\",
+                \"ui_mode\": \"crisis_cards\",
+                \"options\": [
+                    {\"id\": \"9152987821\", \"label\": \"Call iCall\"},
+                    {\"id\": \"9820466726\", \"label\": \"Call AASRA\"},
+                    {\"id\": \"18602662345\", \"label\": \"Call Vandrevala\"}
+                ]
+            }
+        ";
+
+        $userInstruction = "User's latest input type: " . $inputType;
+        return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
+    }
+
+    private function handleHappyRoute($session, $user, $inputType, $currentMessageId)
+    {
+        $recentMessages = $this->repo->getRecentMessages($session->id);
+        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+
+        $systemPrompt = "
+            You are Mann Mitra, a cheerful, warm, and engaging friend. 
+            The user is currently in a good mood, sharing casual news, or just making small talk.
+            
+            TONE RULES:
+            - Communicate entirely in {$languageName}.
+            - Match their positive or casual energy! Be encouraging and bright.
+            - Keep it conversational and brief (Max 2 sentences).
+            - Do not bring up heavy emotional topics unless they do.
+
+            UI WIDGET DECISION ENGINE:
+            - Default to 'buttons' to keep the conversation flowing effortlessly. 
+            - Provide fun or engaging button choices (e.g., 'Tell me more!', 'Just relaxing now', 'Change the topic').
+            - If you ask them a direct question about their day, you can use 'text_input'.
+
+            CONTEXT:
+            Recent Conversation: {$recentMessages}
+            
+            JSON OUTPUT FORMAT (STRICT):
+            {
+                \"ai_message\": \"<your cheerful reply>\",
+                \"ui_mode\": \"<buttons or text_input>\",
+                \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
+            }
+        ";
+
+        $userInstruction = "User's latest input type: " . $inputType;
+        return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
+    }
+
+    private function handleJournalingRoute($session, $user, $inputType, $currentMessageId)
+    {
+        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+
+        $systemPrompt = "
+            You are Mann Mitra. The user has explicitly stated they want to write a diary entry, journal, or record a thought.
+            
+            TONE RULES:
+            - Communicate entirely in {$languageName}.
+            - Be quiet, supportive, and reflective.
+            - Simply tell them you are ready to listen and they can take their time.
+            
+            UI WIDGET DECISION ENGINE:
+            - Because they want to journal, they need to type or speak. 
+            - Set 'ui_mode' to 'text_input' so they can begin writing.
+            - Do not use buttons here; give them the space to express themselves.
+            
+            JSON OUTPUT FORMAT (STRICT):
+            {
+                \"ai_message\": \"<short supportive prompt to start journaling>\",
+                \"ui_mode\": \"text_input\",
+                \"options\": []
+            }
+        ";
+
+        $userInstruction = "User's latest input type: " . $inputType;
+        return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
+    }
+
+    private function handleDistractionRoute($session, $user, $inputType, $currentMessageId)
+    {
+        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+
+        $systemPrompt = "
+            You are Mann Mitra. The user is feeling anxious, overthinking, bored, or specifically asked to be distracted.
+            
+            TONE RULES:
+            - Communicate entirely in {$languageName}.
+            - Be light, engaging, and redirecting. Do not ask deep emotional questions right now.
+            - Validate that taking a break from thinking is a great idea.
+            
+            UI WIDGET DECISION ENGINE (BUTTON-FIRST):
+            - You MUST use 'buttons'. 
+            - Provide 3 distinct, fun, or grounding distraction options.
+            - Examples: 'Tell me a joke', 'Breathing exercise', 'Random fun fact', 'Play a word game'.
+            
+            JSON OUTPUT FORMAT (STRICT):
+            {
+                \"ai_message\": \"<lighthearted, engaging reply>\",
+                \"ui_mode\": \"buttons\",
+                \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
+            }
+        ";
+
+        $userInstruction = "User's latest input type: " . $inputType;
+        return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
+    }
+
+    private function handleVentingRoute($session, $user, $inputType, $currentMessageId)
+    {
+        $recentMessages = $this->repo->getRecentMessages($session->id);
+        $recentMoods = $this->repo->getRecentMoods($user->id);
+        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+
+        $systemPrompt = "
+            You are Mann Mitra, an incredibly empathetic, warm, and gentle friend. 
+            The user is currently venting, stressed, sad, or overwhelmed.
+            
+            TONE RULES:
+            - Communicate entirely in {$languageName}.
+            - Be deeply validating. Say things like 'I hear you', 'That sounds so heavy', or 'It makes sense you feel that way'.
+            - NEVER use 'toxic positivity' (e.g., Do NOT say 'Cheer up', 'Look on the bright side', or 'It will be okay!').
+            - Keep your response to a maximum of 2 short sentences.
+
+            UI WIDGET DECISION ENGINE (CRITICAL 'BUTTON-FIRST' POLICY):
+            Because the user is drained, typing is exhausting for them. 
+            - You MUST set 'ui_mode' to 'buttons' almost every time.
+            - Provide 2 to 4 gentle, low-effort options for them to click.
+            - Keep button labels under 4 words (e.g., 'I just need a hug', 'Let me vent more', 'Can we distract me?').
+            - ONLY use 'text_input' if they explicitly ask an open-ended question that requires typing.
+
+            CONTEXT:
+            Past 7 Days Moods: {$recentMoods}
+            Recent Conversation: {$recentMessages}
+            
+            JSON OUTPUT FORMAT (STRICT):
+            {
+                \"ai_message\": \"<your gentle reply>\",
+                \"ui_mode\": \"<buttons or text_input>\",
+                \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
+            }
+        ";
+
+        $userInstruction = "User's latest input type: " . $inputType;
+        return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
+    }
+
+    private function executeAiRoute($session, $systemPrompt, $userInstruction)
+    {
         try {
             $aiData = $this->openAi->getChatCompletion($systemPrompt, $userInstruction);
 
-            // Crisis Interceptor Override
-            if (isset($aiData['ui_mode']) && $aiData['ui_mode'] === 'crisis_cards') {
-                if ($inputType === 'init') {
-                    // Prevent Ghost Crisis on App Open
-                    $aiData['ui_mode'] = 'text_input';
-                    $aiData['ai_message'] = "Hey, I know things were really tough last time we spoke. I'm just checking in—how are you feeling right now?";
-                    $aiData['options'] = [];
-                } else {
-                    // Legitimate Active Crisis
-                    $this->repo->flagLatestMessageAsCrisis($session->id);
-                    $this->repo->createCrisisAlert($session->id, 'AI Detected Crisis');
+            $aiMessage = $aiData['ai_message'] ?? 'I am here for you.';
+            $ui_mode = $aiData['ui_mode'] ?? 'text_input';
+            $options = $aiData['options'] ?? [];
 
-                    $aiData['ai_message'] = "I'm really concerned about what you just said. You are not alone, and there is help available.\n\nPlease reach out to these support lines in India immediately:\n📞 **iCall:** 9152987821 (Mon-Sat, 10 AM - 8 PM)\n📞 **AASRA:** 9820466726 (24x7)\n📞 **Vandrevala Foundation:** 1860 266 2345 (24x7)\n\nI am here to listen, but please consider calling one of these numbers right now.";
-                    $aiData['options'] = [
-                        ['id' => '9152987821', 'label' => 'Call iCall'],
-                        ['id' => '9820466726', 'label' => 'Call AASRA'],
-                        ['id' => '18602662345', 'label' => 'Call Vandrevala']
-                    ];
-                }
-            }
-
-            // Deterministic guardrails so UI policy never depends only on model compliance.
-            if ($inputType === 'init') {
-                if ($hasMoodToday && (($aiData['ui_mode'] ?? null) === 'emoji_slider')) {
-                    $aiData['ui_mode'] = 'text_input';
-                    $aiData['options'] = [];
-                }
-
-                if (!$hasMoodToday && $minutesSinceLastMsg >= 60 && (($aiData['ui_mode'] ?? null) !== 'emoji_slider')) {
-                    $aiData['ui_mode'] = 'emoji_slider';
-                    $aiData['options'] = [];
-                }
-            }
-
-            // Save AI Message to DB
-            $this->repo->createMessage($session->id, 'ai', 'text', $aiData['ai_message'] ?? 'I am here for you.');
+            $this->repo->createMessage($session->id, 'ai', 'text', $aiMessage);
 
             return [
                 'node_id' => 'msg_' . time(),
-                'ai_message' => $aiData['ai_message'] ?? 'I am here for you. Take a deep breath.',
-                'ui_mode' => $aiData['ui_mode'] ?? 'text_input',
-                'options' => $aiData['options'] ?? []
+                'ai_message' => $aiMessage,
+                'ui_mode' => $ui_mode,
+                'options' => $options
             ];
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error("AI Companion Error: " . $e->getMessage());
+            Log::error("AI Route Error: " . $e->getMessage());
             return [
                 'node_id' => 'msg_error_fallback',
                 'ai_message' => 'I am here with you, but my connection is a bit slow right now. You can keep typing if you want.',

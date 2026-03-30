@@ -29,6 +29,30 @@ class AIService
         throw new \Exception("OpenAI API failed with status: " . $response->status());
     }
 
+    public function getUserIntentUsingMini($prompt, $userInstruction) 
+    {
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+            'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+            'Content-Type' => 'application/json',
+        ])->timeout(30)->post('https://api.openai.com/v1/chat/completions', [
+            'model' => 'gpt-4o-mini',
+            'response_format' => ['type' => 'json_object'],
+            'messages' => [
+                ['role' => 'system', 'content' => $prompt],
+                ['role' => 'user', 'content' => $userInstruction]
+            ],
+            'temperature' => 0.0 
+        ]);
+
+        if($response->successful()){
+            $content = $response->json('choices.0.message.content');
+            return json_decode($content, true); 
+        }
+
+        throw new \Exception("OpenAI API failed with status: " . $response->status());
+    }
+
+
     public function transcribeAudio($audioFile, $languageCode = 'en')
     {
         try {
