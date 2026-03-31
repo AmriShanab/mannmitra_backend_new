@@ -30,7 +30,7 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/companion/interact', [AiCompanionController::class, 'interact']);
         // Route::get('/mood/daily-vibe', [MoodController::class, 'dailyVibe']);
-        Route::get('/notifications', [NotificationController::class, 'show']);
+        Route::get('/notifications', [NotificationController::class, 'index']);
 
         Route::controller(UserController::class)->group(function () {
             Route::get('/', 'me');

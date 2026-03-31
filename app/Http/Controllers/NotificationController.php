@@ -4,62 +4,35 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class NotificationController extends Controller
 {
-    public function show(Request $request): JsonResponse
+    public function index(Request $request)
     {
-        $user = $request->user();
+        $user = Auth::user();
 
-        $notifications = $user->notifications()
-            ->latest()
-            ->get()
-            ->map(function ($notification) {
-                $data = is_array($notification->data) ? $notification->data : [];
+        $notifications = $user->notifications;
 
-                $title = $data['title'] ?? 'Notification';
-                $body = $data['body'] ?? '';
+        $formattedNotifications = $notifications->map(function ($notification) {
+            $data = $notification->data;
 
-                $rawType = (string) ($data['type'] ?? 'alert');
-                $allowedTypes = ['appointment_reminder', 'message', 'alert', 'video_call'];
-                $type = in_array($rawType, $allowedTypes, true) ? $rawType : 'alert';
-
-                unset($data['title'], $data['body'], $data['type']);
-
-                return [
-                    'id' => 'notif_' . $notification->id,
-                    'title' => $title,
-                    'body' => $body,
-                    'timestamp' => optional($notification->created_at)->toISOString(),
-                    'isRead' => !is_null($notification->read_at),
-                    'type' => $type,
-                    'payload' => $this->toCamelCaseKeys($data),
-                ];
-            })
-            ->values();
+            return [
+                'id' => $notification->id,
+                'title' => $data['title'] ?? 'New Notification',
+                'body' => $data['body'] ?? '',
+                'timestamp' => $notification->created_at->toIso8601ZuluString(),
+                'isRead' => $notification->read_at !== null,
+                'type' => $data['type'] ?? 'alert', 
+                'payload' => $data['payload'] ?? (object)[]
+            ];
+            
+        });
 
         return response()->json([
             'success' => true,
-            'data' => $notifications,
+            'data' => $formattedNotifications
         ]);
-    }
-
-    private function toCamelCaseKeys(array $payload): array
-    {
-        $result = [];
-
-        foreach ($payload as $key => $value) {
-            $camelKey = is_string($key) ? Str::camel($key) : $key;
-
-            if (is_array($value)) {
-                $result[$camelKey] = $this->toCamelCaseKeys($value);
-                continue;
-            }
-
-            $result[$camelKey] = $value;
-        }
-
-        return $result;
     }
 }
