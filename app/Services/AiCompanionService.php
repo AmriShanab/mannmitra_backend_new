@@ -29,7 +29,6 @@ class AiCompanionService
         // 1. Process Input (Traffic Cop)
         switch ($inputType) {
             case 'init_cbt':
-                // Log that the user started a specific exercise
                 $userMessageContent = "[User started CBT Exercise ID: $inputValue]";
                 break;
 
@@ -55,11 +54,8 @@ class AiCompanionService
                 break;
 
             case 'buttons':
-                // INTERCEPTOR: Catch dynamic CBT start buttons from mid-chat
                 if (str_starts_with($inputValue, 'start_cbt_')) {
                     $cbtId = str_replace('start_cbt_', '', $inputValue);
-                    
-                    // Hijack the input to act exactly like an Activity Screen click!
                     $inputType = 'init_cbt';
                     $inputValue = $cbtId;
                     $userMessageContent = "[User accepted AI suggestion to start CBT Exercise: $cbtId]";
@@ -77,7 +73,7 @@ class AiCompanionService
                 break;
         }
 
-        // 2. Save User Message to DB (So it appears in recent messages context)
+        // 2. Save User Message to DB
         if ($userMessageContent) {
             $type = ($inputType === 'voice_record') ? 'audio' : 'text';
             $savedUserMessage = $this->repo->createMessage($session->id, 'user', $type, $userMessageContent, $audioPath);
@@ -92,38 +88,38 @@ class AiCompanionService
             return $this->handleDayOneOnboarding($session, $user);
         }
 
-        // Daily Mood Check-in 
+        // 3.5. Daily Mood Check-in 
         if ($inputType === 'init' && !$hasMoodToday) {
             return $this->handleDailyMoodCheckin($session, $user);
         }
 
-        // 3.5 CBT Exercise Initialization (Bypass Triage)
+        // 3.6 CBT Exercise Initialization 
         if ($inputType === 'init_cbt') {
             return $this->handleCbtInitRoute($session, $user, $inputValue);
         }
 
-        // 4. The Triage Step: Classify emotional intent
+        // 4. The Triage Step
         $intent = ($inputType === 'init')
             ? \App\Enums\UserIntent::HAPPY_CASUAL
             : $this->classifyUserIntent($inputValue, $user->language);
 
-        // 5. The Router: Send them to the specialized Therapist Prompt
+        // 5. The Router: Note how we now pass $userMessageContent so the AI actually reads the message!
         switch ($intent) {
             case UserIntent::CRISIS:
-                return $this->handleCrisisRoute($session, $user, $inputType, $savedUserMessage?->id);
+                return $this->handleCrisisRoute($session, $user, $inputType, $userMessageContent);
 
             case UserIntent::HAPPY_CASUAL:
-                return $this->handleHappyRoute($session, $user, $inputType, $savedUserMessage?->id);
+                return $this->handleHappyRoute($session, $user, $inputType, $userMessageContent);
 
             case UserIntent::JOURNALING:
-                return $this->handleJournalingRoute($session, $user, $inputType, $savedUserMessage?->id);
+                return $this->handleJournalingRoute($session, $user, $inputType, $userMessageContent);
 
             case UserIntent::NEEDS_DISTRACTION:
-                return $this->handleDistractionRoute($session, $user, $inputType, $savedUserMessage?->id);
+                return $this->handleDistractionRoute($session, $user, $inputType, $userMessageContent);
 
             case UserIntent::VENTING_SAD:
             default:
-                return $this->handleVentingRoute($session, $user, $inputType, $savedUserMessage?->id);
+                return $this->handleVentingRoute($session, $user, $inputType, $userMessageContent);
         }
     }
 
@@ -133,9 +129,7 @@ class AiCompanionService
         if ($user->language === 'hi') {
             $welcomeText = "Namaste {$user->name}, main Mann Mitra hoon. Main yahan sirf aapko sunne ke liye hoon, bina kisi judgment ke. Abhi aap kaisa mehsoos kar rahe hain?";
         }
-
         $this->repo->createMessage($session->id, 'ai', 'text', $welcomeText);
-
         return [
             'node_id' => 'msg_welcome_1',
             'ai_message' => $welcomeText,
@@ -178,11 +172,9 @@ class AiCompanionService
 
         try {
             $response = $this->openAi->getUserIntentUsingMini($systemPrompt, $userInstruction);
-
             if (isset($response['intent']) && in_array($response['intent'], \App\Enums\UserIntent::all())) {
                 return $response['intent'];
             }
-
             return UserIntent::VENTING_SAD;
         } catch (\Exception $e) {
             Log::warning('Triage Classification Failed: ' . $e->getMessage());
@@ -196,9 +188,7 @@ class AiCompanionService
         if ($user->language === 'hi') {
             $welcomeText = "Namaste {$user->name}! Aaj aap kaisa mehsoos kar rahe hain?";
         }
-
         $this->repo->createMessage($session->id, 'ai', 'text', $welcomeText);
-
         return [
             'node_id' => 'msg_daily_mood_' . time(),
             'ai_message' => $welcomeText,
@@ -215,30 +205,21 @@ class AiCompanionService
     {
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
-        // 1. Breathing Exercise
         if ($activityId == 2 || $activityId === 'breathing_01') {
             $aiMessage = "Welcome to the Breathing Exercise. Let's begin by taking a deep breath in...";
-            if ($user->language === 'hi') {
-                $aiMessage = "Swagat hai. Chaliye ek gehri saans lene se shuru karte hain...";
-            }
+            if ($user->language === 'hi') { $aiMessage = "Swagat hai. Chaliye ek gehri saans lene se shuru karte hain..."; }
             $uiMode = 'breathing_animation';
             $options = [['id' => 'next', 'label' => "I'm ready"]];
         } 
-        // 2. Grounding Exercise (The Mid-Chat Suggestion)
         elseif ($activityId === 'grounding_01') {
             $aiMessage = "Let's do a quick grounding exercise together. Look around the room and type out 3 things you can see right now.";
-            if ($user->language === 'hi') { 
-                $aiMessage = "Chaliye grounding exercise karte hain. Apne aas-paas dekhiye aur 3 cheezein bataiye jo aap dekh sakte hain."; 
-            }
+            if ($user->language === 'hi') { $aiMessage = "Chaliye grounding exercise karte hain. Apne aas-paas dekhiye aur 3 cheezein bataiye jo aap dekh sakte hain."; }
             $uiMode = 'text_input';
             $options = [];
         }
-        // 3. Reframing (Default)
         else {
             $aiMessage = "Welcome to Reframing. Let's work through your thoughts together. What is a negative thought you've been having recently?";
-            if ($user->language === 'hi') {
-                $aiMessage = "Chaliye aapki pareshaniyo par baat karte hain. Aapke dimaag mein kya chal raha hai?";
-            }
+            if ($user->language === 'hi') { $aiMessage = "Chaliye aapki pareshaniyo par baat karte hain. Aapke dimaag mein kya chal raha hai?"; }
             $uiMode = 'text_input';
             $options = [];
         }
@@ -253,7 +234,7 @@ class AiCompanionService
         ];
     }
 
-    private function handleCrisisRoute($session, $user, $inputType, $currentMessageId)
+    private function handleCrisisRoute($session, $user, $inputType, $userMessageContent)
     {
         $this->repo->flagLatestMessageAsCrisis($session->id);
         $this->repo->createCrisisAlert($session->id, 'AI Triage Detected Crisis');
@@ -286,11 +267,11 @@ class AiCompanionService
             }
         ";
 
-        $userInstruction = "User's latest input type: " . $inputType;
+        $userInstruction = "User's message: " . $userMessageContent;
         return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
     }
 
-    private function handleHappyRoute($session, $user, $inputType, $currentMessageId)
+    private function handleHappyRoute($session, $user, $inputType, $userMessageContent)
     {
         $recentMessages = $this->repo->getRecentMessages($session->id);
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
@@ -321,11 +302,15 @@ class AiCompanionService
             }
         ";
 
-        $userInstruction = "User's latest input type: " . $inputType;
+        // Fix: Explicitly tell AI to greet the user if they just opened the app
+        $userInstruction = ($inputType === 'init') 
+            ? "SYSTEM INSTRUCTION: The user just opened the app. Greet them warmly and ask how their day is going."
+            : "User's message: " . $userMessageContent;
+
         return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
     }
 
-    private function handleJournalingRoute($session, $user, $inputType, $currentMessageId)
+    private function handleJournalingRoute($session, $user, $inputType, $userMessageContent)
     {
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
@@ -350,11 +335,11 @@ class AiCompanionService
             }
         ";
 
-        $userInstruction = "User's latest input type: " . $inputType;
+        $userInstruction = "User's message: " . $userMessageContent;
         return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
     }
 
-    private function handleDistractionRoute($session, $user, $inputType, $currentMessageId)
+    private function handleDistractionRoute($session, $user, $inputType, $userMessageContent)
     {
         $recentMessages = $this->repo->getRecentMessages($session->id);
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
@@ -386,11 +371,11 @@ class AiCompanionService
             }
         ";
 
-        $userInstruction = "Please execute the distraction based on my latest message.";
+        $userInstruction = "User's message: " . $userMessageContent;
         return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
     }
 
-    private function handleVentingRoute($session, $user, $inputType, $currentMessageId)
+    private function handleVentingRoute($session, $user, $inputType, $userMessageContent)
     {
         $recentMessages = $this->repo->getRecentMessages($session->id);
         $recentMoods = $this->repo->getRecentMoods($user->id);
@@ -433,7 +418,11 @@ class AiCompanionService
             }
         ";
 
-        $userInstruction = "User's latest input type: " . $inputType;
+        // Fix: Explicitly tell AI to greet the user if they just opened the app
+        $userInstruction = ($inputType === 'init') 
+            ? "SYSTEM INSTRUCTION: The user just opened the app. Acknowledge they were feeling down recently and ask how they feel right now."
+            : "User's message: " . $userMessageContent;
+
         return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
     }
 
