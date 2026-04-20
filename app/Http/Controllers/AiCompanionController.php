@@ -19,7 +19,7 @@ class AiCompanionController extends Controller
     public function interact(Request $request)
     {
         $request->validate([
-            'input_type' => 'required|string|in:init,buttons,emoji_slider,text_input,voice_record,crisis_contacted',
+            'input_type' => 'required|string|in:init,buttons,emoji_slider,text_input,voice_record,crisis_contacted,init_cbt',
             'input_value' => 'nullable',
         ]);
 

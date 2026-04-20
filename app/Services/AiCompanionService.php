@@ -28,6 +28,11 @@ class AiCompanionService
 
         // 1. Process Input (Traffic Cop)
         switch ($inputType) {
+            case 'init_cbt':
+                // Log that the user started a specific exercise
+                $userMessageContent = "[User started CBT Exercise ID: $inputValue]";
+                break;
+
             case 'emoji_slider':
                 $this->repo->createMoodEntry($user->id, $inputValue, 'Logged via AI Companion - Emoji Slider');
                 $userMessageContent = "[User Indicated a mood score of : $inputValue/10]";
@@ -50,6 +55,19 @@ class AiCompanionService
                 break;
 
             case 'buttons':
+                // INTERCEPTOR: Catch dynamic CBT start buttons from mid-chat
+                if (str_starts_with($inputValue, 'start_cbt_')) {
+                    $cbtId = str_replace('start_cbt_', '', $inputValue);
+                    
+                    // Hijack the input to act exactly like an Activity Screen click!
+                    $inputType = 'init_cbt';
+                    $inputValue = $cbtId;
+                    $userMessageContent = "[User accepted AI suggestion to start CBT Exercise: $cbtId]";
+                } else {
+                    $userMessageContent = $inputValue;
+                }
+                break;
+
             case 'text_input':
                 $userMessageContent = $inputValue;
                 break;
@@ -74,8 +92,14 @@ class AiCompanionService
             return $this->handleDayOneOnboarding($session, $user);
         }
 
+        // Daily Mood Check-in 
         if ($inputType === 'init' && !$hasMoodToday) {
             return $this->handleDailyMoodCheckin($session, $user);
+        }
+
+        // 3.5 CBT Exercise Initialization (Bypass Triage)
+        if ($inputType === 'init_cbt') {
+            return $this->handleCbtInitRoute($session, $user, $inputValue);
         }
 
         // 4. The Triage Step: Classify emotional intent
@@ -187,9 +211,50 @@ class AiCompanionService
     // PHASE 3: SPECIALIZED ROUTE HANDLERS
     // =========================================================================
 
+    private function handleCbtInitRoute($session, $user, $activityId)
+    {
+        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+
+        // 1. Breathing Exercise
+        if ($activityId == 2 || $activityId === 'breathing_01') {
+            $aiMessage = "Welcome to the Breathing Exercise. Let's begin by taking a deep breath in...";
+            if ($user->language === 'hi') {
+                $aiMessage = "Swagat hai. Chaliye ek gehri saans lene se shuru karte hain...";
+            }
+            $uiMode = 'breathing_animation';
+            $options = [['id' => 'next', 'label' => "I'm ready"]];
+        } 
+        // 2. Grounding Exercise (The Mid-Chat Suggestion)
+        elseif ($activityId === 'grounding_01') {
+            $aiMessage = "Let's do a quick grounding exercise together. Look around the room and type out 3 things you can see right now.";
+            if ($user->language === 'hi') { 
+                $aiMessage = "Chaliye grounding exercise karte hain. Apne aas-paas dekhiye aur 3 cheezein bataiye jo aap dekh sakte hain."; 
+            }
+            $uiMode = 'text_input';
+            $options = [];
+        }
+        // 3. Reframing (Default)
+        else {
+            $aiMessage = "Welcome to Reframing. Let's work through your thoughts together. What is a negative thought you've been having recently?";
+            if ($user->language === 'hi') {
+                $aiMessage = "Chaliye aapki pareshaniyo par baat karte hain. Aapke dimaag mein kya chal raha hai?";
+            }
+            $uiMode = 'text_input';
+            $options = [];
+        }
+
+        $this->repo->createMessage($session->id, 'ai', 'text', $aiMessage);
+
+        return [
+            'node_id' => 'cbt_init_' . time(),
+            'ai_message' => $aiMessage,
+            'ui_mode' => $uiMode,
+            'options' => $options
+        ];
+    }
+
     private function handleCrisisRoute($session, $user, $inputType, $currentMessageId)
     {
-        // 1. Instantly log the crisis to alert human Listeners/Doctors
         $this->repo->flagLatestMessageAsCrisis($session->id);
         $this->repo->createCrisisAlert($session->id, 'AI Triage Detected Crisis');
 
@@ -335,17 +400,26 @@ class AiCompanionService
             You are Mann Mitra, an incredibly empathetic, warm, and gentle friend. 
             The user is currently venting, stressed, sad, or overwhelmed.
             
+            CRITICAL CBT SUGGESTION RULE (ANXIETY/PANIC):
+            If the user is exhibiting severe anxiety, panic, racing thoughts, or spiraling, you MUST pause and offer a grounding exercise.
+            When you offer this, you MUST set 'ui_mode' to 'buttons' and provide these exact two options:
+            [{\"id\": \"start_cbt_grounding_01\", \"label\": \"Yes, let's start\"}, {\"id\": \"continue_chat\", \"label\": \"No, just talk\"}]
+
+            CBT CONCLUSION RULE (END OF EXERCISE):
+            If you look at the recent conversation and see you have just successfully finished guiding a CBT or grounding exercise, you MUST praise them for completing it. 
+            When concluding an exercise, ask them how they feel and STRICTLY set 'ui_mode' to 'emoji_slider'.
+            
             TONE RULES:
             - Communicate entirely in {$languageName}.
             - Be deeply validating. Say things like 'I hear you', 'That sounds so heavy', or 'It makes sense you feel that way'.
             - NEVER use 'toxic positivity' (e.g., Do NOT say 'Cheer up', 'Look on the bright side', or 'It will be okay!').
             - Keep your response to a maximum of 2 short sentences.
 
-         UI WIDGET DECISION ENGINE (DYNAMIC UI):
-            - If the user explicitly asks to speak, record audio, or use voice, set 'ui_mode' to 'voice_record'.
-            - If you are asking a deep or open-ended question (e.g., 'What exactly happened?', 'How did that make you feel?'), you MUST set 'ui_mode' to 'text_input'.
-            - If you are just offering comfort, a quick choice, or if the user seems too exhausted to type, set 'ui_mode' to 'buttons' (Max 2-4 options).
-            - DO NOT use buttons for every single reply. Mix 'text_input' and 'buttons' so it feels like a natural human chat.\
+            UI WIDGET DECISION ENGINE (DYNAMIC UI):
+            - Use 'voice_record' if they ask to speak.
+            - Use 'text_input' if asking a deep/open-ended question.
+            - Use 'buttons' for quick choices or comfort (unless the CBT Suggestion Rule overrides this).
+            - Use 'emoji_slider' ONLY if the CBT Conclusion Rule is triggered.
 
             CONTEXT:
             Past 7 Days Moods: {$recentMoods}
@@ -354,7 +428,7 @@ class AiCompanionService
             JSON OUTPUT FORMAT (STRICT):
             {
                 \"ai_message\": \"<your gentle reply>\",
-                \"ui_mode\": \"<buttons or text_input>\",
+                \"ui_mode\": \"<buttons, text_input, voice_record, or emoji_slider>\",
                 \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
             }
         ";

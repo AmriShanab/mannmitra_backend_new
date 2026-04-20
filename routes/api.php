@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AiCompanionController;
 use App\Http\Controllers\AppointmentController;
@@ -76,6 +77,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/my-history', [AppointmentController::class, 'getAppointmentsOfUser']);
             Route::post('/close', [AppointmentController::class, 'closingAppointments']);
         });
+
+        Route::get('/cbt/activities', [ActivityController::class, 'index']);
     });
 
     Route::middleware(['auth:sanctum', CheckAdminRole::class])->prefix('admin')->group(function () {
