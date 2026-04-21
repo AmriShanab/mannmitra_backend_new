@@ -13,7 +13,10 @@ class NotificationService
 
     public function __construct()
     {
-        $factory = (new Factory)->withServiceAccount(base_path(env('FIREBASE_CREDENTIALS')));
+        // Added the exact string path as a fallback for when env() is null during artisan commands
+        $firebasePath = env('FIREBASE_CREDENTIALS', 'storage/app/firebase_credentials.json');
+
+        $factory = (new Factory)->withServiceAccount(base_path($firebasePath));
         $this->messaging = $factory->createMessaging();
     }
 
