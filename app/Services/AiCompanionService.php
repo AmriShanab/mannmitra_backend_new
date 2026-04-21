@@ -248,6 +248,7 @@ class AiCompanionService
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
         if ($activityId === 'breathing_01' || $activityId === 'cbt_breathing') {
+            Log::info("User is in Breathing Exercise. Recent Messages: " . $recentMessages);
             $systemPrompt = "
                 You are conducting a guided Breathing Exercise for the user.
                 
@@ -267,6 +268,7 @@ class AiCompanionService
                 }
             ";
         } elseif ($activityId === 'grounding_01' || $activityId === 'cbt_grounding') {
+            Log::info("User is in Grounding Exercise. Recent Messages: " . $recentMessages);
             $systemPrompt = "
                 You are conducting a Grounding Exercise (5-4-3-2-1 technique).
                 
@@ -287,6 +289,7 @@ class AiCompanionService
                 }
             ";
         } else {
+            Log::info("User is in Reframing Exercise. Recent Messages: " . $recentMessages);
             $systemPrompt = "
                 You are conducting a Cognitive Reframing Exercise.
                 
