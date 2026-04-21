@@ -205,25 +205,35 @@ class AiCompanionService
     {
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
-        if ($activityId == 2 || $activityId === 'breathing_01') {
+        // 1. Breathing Exercise
+        if ($activityId === 'breathing_01') {
             $aiMessage = "Welcome to the Breathing Exercise. Let's begin by taking a deep breath in...";
-            if ($user->language === 'hi') { $aiMessage = "Swagat hai. Chaliye ek gehri saans lene se shuru karte hain..."; }
+            if ($user->language === 'hi') {
+                $aiMessage = "Swagat hai. Chaliye ek gehri saans lene se shuru karte hain...";
+            }
             $uiMode = 'breathing_animation';
             $options = [['id' => 'next', 'label' => "I'm ready"]];
-        } 
+        }
+        // 2. Grounding Exercise (The Mid-Chat Suggestion)
         elseif ($activityId === 'grounding_01') {
             $aiMessage = "Let's do a quick grounding exercise together. Look around the room and type out 3 things you can see right now.";
-            if ($user->language === 'hi') { $aiMessage = "Chaliye grounding exercise karte hain. Apne aas-paas dekhiye aur 3 cheezein bataiye jo aap dekh sakte hain."; }
+            if ($user->language === 'hi') {
+                $aiMessage = "Chaliye grounding exercise karte hain. Apne aas-paas dekhiye aur 3 cheezein bataiye jo aap dekh sakte hain.";
+            }
             $uiMode = 'text_input';
             $options = [];
         }
+        // 3. Reframing (Default for 'reframing_01' or any unknown ID)
         else {
             $aiMessage = "Welcome to Reframing. Let's work through your thoughts together. What is a negative thought you've been having recently?";
-            if ($user->language === 'hi') { $aiMessage = "Chaliye aapki pareshaniyo par baat karte hain. Aapke dimaag mein kya chal raha hai?"; }
+            if ($user->language === 'hi') {
+                $aiMessage = "Chaliye aapki pareshaniyo par baat karte hain. Aapke dimaag mein kya chal raha hai?";
+            }
             $uiMode = 'text_input';
             $options = [];
         }
 
+        // Save the Kickoff message to the DB so the AI knows we started
         $this->repo->createMessage($session->id, 'ai', 'text', $aiMessage);
 
         return [
@@ -234,6 +244,7 @@ class AiCompanionService
         ];
     }
 
+    
     private function handleCrisisRoute($session, $user, $inputType, $userMessageContent)
     {
         $this->repo->flagLatestMessageAsCrisis($session->id);
@@ -303,7 +314,7 @@ class AiCompanionService
         ";
 
         // Fix: Explicitly tell AI to greet the user if they just opened the app
-        $userInstruction = ($inputType === 'init') 
+        $userInstruction = ($inputType === 'init')
             ? "SYSTEM INSTRUCTION: The user just opened the app. Greet them warmly and ask how their day is going."
             : "User's message: " . $userMessageContent;
 
@@ -419,7 +430,7 @@ class AiCompanionService
         ";
 
         // Fix: Explicitly tell AI to greet the user if they just opened the app
-        $userInstruction = ($inputType === 'init') 
+        $userInstruction = ($inputType === 'init')
             ? "SYSTEM INSTRUCTION: The user just opened the app. Acknowledge they were feeling down recently and ask how they feel right now."
             : "User's message: " . $userMessageContent;
 
