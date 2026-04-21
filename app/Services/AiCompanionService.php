@@ -54,13 +54,16 @@ class AiCompanionService
                 break;
 
             case 'buttons':
+                // ENHANCED INTERCEPTOR: Make button clicks readable for the AI
                 if (str_starts_with($inputValue, 'start_cbt_')) {
                     $cbtId = str_replace('start_cbt_', '', $inputValue);
                     $inputType = 'init_cbt';
                     $inputValue = $cbtId;
                     $userMessageContent = "[User accepted AI suggestion to start CBT Exercise: $cbtId]";
+                } elseif ($inputValue === 'next') {
+                    $userMessageContent = "[User clicked 'Next / I am ready']";
                 } else {
-                    $userMessageContent = $inputValue;
+                    $userMessageContent = "[User selected button ID: $inputValue]";
                 }
                 break;
 
@@ -103,7 +106,7 @@ class AiCompanionService
             ? \App\Enums\UserIntent::HAPPY_CASUAL
             : $this->classifyUserIntent($inputValue, $user->language);
 
-        // 5. The Router: Note how we now pass $userMessageContent so the AI actually reads the message!
+        // 5. The Router
         switch ($intent) {
             case UserIntent::CRISIS:
                 return $this->handleCrisisRoute($session, $user, $inputType, $userMessageContent);
@@ -153,14 +156,14 @@ class AiCompanionService
             CATEGORIES:
             - 'crisis': Self-harm, extreme panic, abuse, absolute hopelessness, or immediate danger.
             - 'venting_sad': Crying, stressed, complaining, anxious, lonely, or feeling down.
-            - 'happy_casual': Good news, casual greetings (Hi, Good morning), normal non-stressful chat.
-            - 'journaling': Explicitly wants to save a diary entry, record a memory, or log a note.
-            - 'needs_distraction': Bored, asking for a game, wanting to change the subject, or overthinking.
+            - 'happy_casual': Good news, casual greetings, normal non-stressful chat, or clicking 'next'.
+            - 'journaling': Explicitly wants to save a diary entry.
+            - 'needs_distraction': Bored, asking for a game, or wanting to change the subject.
 
             RULES:
             1. Output STRICTLY in JSON format.
-            2. Do NOT include any other text, markdown formatting, or explanations.
-            3. The language of the user's input will be in {$languageName}.
+            2. Do NOT include any other text.
+            3. Language: {$languageName}.
 
             EXPECTED OUTPUT FORMAT:
             {
@@ -205,35 +208,25 @@ class AiCompanionService
     {
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
-        // 1. Breathing Exercise
         if ($activityId === 'breathing_01') {
             $aiMessage = "Welcome to the Breathing Exercise. Let's begin by taking a deep breath in...";
-            if ($user->language === 'hi') {
-                $aiMessage = "Swagat hai. Chaliye ek gehri saans lene se shuru karte hain...";
-            }
+            if ($user->language === 'hi') { $aiMessage = "Swagat hai. Chaliye ek gehri saans lene se shuru karte hain..."; }
             $uiMode = 'breathing_animation';
             $options = [['id' => 'next', 'label' => "I'm ready"]];
-        }
-        // 2. Grounding Exercise (The Mid-Chat Suggestion)
+        } 
         elseif ($activityId === 'grounding_01') {
             $aiMessage = "Let's do a quick grounding exercise together. Look around the room and type out 3 things you can see right now.";
-            if ($user->language === 'hi') {
-                $aiMessage = "Chaliye grounding exercise karte hain. Apne aas-paas dekhiye aur 3 cheezein bataiye jo aap dekh sakte hain.";
-            }
+            if ($user->language === 'hi') { $aiMessage = "Chaliye grounding exercise karte hain. Apne aas-paas dekhiye aur 3 cheezein bataiye jo aap dekh sakte hain."; }
             $uiMode = 'text_input';
             $options = [];
         }
-        // 3. Reframing (Default for 'reframing_01' or any unknown ID)
         else {
             $aiMessage = "Welcome to Reframing. Let's work through your thoughts together. What is a negative thought you've been having recently?";
-            if ($user->language === 'hi') {
-                $aiMessage = "Chaliye aapki pareshaniyo par baat karte hain. Aapke dimaag mein kya chal raha hai?";
-            }
+            if ($user->language === 'hi') { $aiMessage = "Chaliye aapki pareshaniyo par baat karte hain. Aapke dimaag mein kya chal raha hai?"; }
             $uiMode = 'text_input';
             $options = [];
         }
 
-        // Save the Kickoff message to the DB so the AI knows we started
         $this->repo->createMessage($session->id, 'ai', 'text', $aiMessage);
 
         return [
@@ -244,7 +237,6 @@ class AiCompanionService
         ];
     }
 
-    
     private function handleCrisisRoute($session, $user, $inputType, $userMessageContent)
     {
         $this->repo->flagLatestMessageAsCrisis($session->id);
@@ -254,21 +246,19 @@ class AiCompanionService
 
         $systemPrompt = "
             You are Mann Mitra, a crisis-intervention companion. 
-            The user is in acute distress, expressing hopelessness, or in danger.
+            The user is in acute distress.
             
             TONE RULES:
-            - Communicate entirely in {$languageName}.
-            - Be extremely gentle, grounding, and safe.
-            - Remind them they are not alone, they are brave for sharing, and that help is available.
-            - Keep it to a maximum of 2 short, calming sentences. Do not overwhelm them with text.
+            - Communicate in {$languageName}.
+            - Be gentle, grounding, and safe.
+            - Keep it to a maximum of 2 short sentences.
             
-            UI WIDGET DECISION ENGINE (CRITICAL OVERRIDE):
+            UI WIDGET DECISION ENGINE:
             - You MUST set 'ui_mode' to 'crisis_cards'.
-            - Provide these exact 3 emergency options in the 'options' array.
             
             JSON OUTPUT FORMAT (STRICT):
             {
-                \"ai_message\": \"<your grounding, safe message>\",
+                \"ai_message\": \"<your grounding message>\",
                 \"ui_mode\": \"crisis_cards\",
                 \"options\": [
                     {\"id\": \"9152987821\", \"label\": \"Call iCall\"},
@@ -288,34 +278,37 @@ class AiCompanionService
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
         $systemPrompt = "
-            You are Mann Mitra, a warm and engaging friend. 
-            The user is in a good mood, sharing casual news, or just indicated they feel better after being sad/distracted.
+            You are Mann Mitra.
             
-            TONE & EXIT STRATEGY:
-            - Communicate entirely in {$languageName}.
-            - If the user just said 'I feel better' or 'Change the topic' after a previous distraction, warmly validate their progress (e.g., 'I am so happy to hear that!').
-            - Gently pivot back to a normal conversation by asking a grounded, open-ended question (e.g., 'What's on your mind now?' or 'How do you want to spend the rest of your day?').
-            - Do not bring up heavy emotional topics unless they do.
+            CBT CONTINUATION RULE (CRITICAL OVERRIDE):
+            If the Recent Conversation shows you are currently in the middle of a guided exercise (like Breathing, Reframing, or Grounding), ignore standard chat rules. Provide the next step. 
+            - For Breathing: Instruct their breath and MUST set 'ui_mode' to 'breathing_animation' with a 'Next' button.
+            - For Others: Ask the next step and set 'ui_mode' to 'text_input'.
 
-            UI WIDGET DECISION ENGINE (DYNAMIC UI):
-            - If they explicitly ask to use voice, set 'ui_mode' to 'voice_record'.
-            - If you are asking a grounded, open-ended question to transition the conversation (like 'What is on your mind now?'), you MUST set 'ui_mode' to 'text_input'.
-            - Only use 'buttons' if you are making casual small talk and want to offer fun, quick choices.
+            TONE & EXIT STRATEGY:
+            - Communicate in {$languageName}.
+            - If they just said 'I feel better', validate it warmly.
+            - Pivot back to a normal conversation with a grounded question.
+
+            UI WIDGET DECISION ENGINE:
+            - Use 'voice_record' if asked.
+            - Use 'breathing_animation' ONLY if continuing a breathing exercise.
+            - Use 'text_input' for open-ended questions.
+            - Use 'buttons' for quick choices.
 
             CONTEXT:
             Recent Conversation: {$recentMessages}
             
             JSON OUTPUT FORMAT (STRICT):
             {
-                \"ai_message\": \"<your cheerful or grounding reply>\",
-                \"ui_mode\": \"<buttons, text_input, or voice_record>\",
+                \"ai_message\": \"<reply>\",
+                \"ui_mode\": \"<buttons, text_input, voice_record, or breathing_animation>\",
                 \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
             }
         ";
 
-        // Fix: Explicitly tell AI to greet the user if they just opened the app
-        $userInstruction = ($inputType === 'init')
-            ? "SYSTEM INSTRUCTION: The user just opened the app. Greet them warmly and ask how their day is going."
+        $userInstruction = ($inputType === 'init') 
+            ? "SYSTEM INSTRUCTION: The user just opened the app. Greet them warmly."
             : "User's message: " . $userMessageContent;
 
         return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
@@ -326,21 +319,18 @@ class AiCompanionService
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
         $systemPrompt = "
-            You are Mann Mitra. The user has explicitly stated they want to write a diary entry, journal, or record a thought.
+            You are Mann Mitra. The user wants to journal.
             
             TONE RULES:
-            - Communicate entirely in {$languageName}.
-            - Be quiet, supportive, and reflective.
-            - Simply tell them you are ready to listen and they can take their time.
+            - Communicate in {$languageName}.
+            - Be supportive and reflective.
             
             UI WIDGET DECISION ENGINE:
-            - Because they want to journal, they need to type or speak. 
-            - Set 'ui_mode' to 'text_input' so they can begin writing.
-            - Do not use buttons here; give them the space to express themselves.
+            - Set 'ui_mode' to 'text_input'.
             
-            JSON OUTPUT FORMAT (STRICT):
+            JSON OUTPUT FORMAT:
             {
-                \"ai_message\": \"<short supportive prompt to start journaling>\",
+                \"ai_message\": \"<short prompt>\",
                 \"ui_mode\": \"text_input\",
                 \"options\": []
             }
@@ -356,27 +346,21 @@ class AiCompanionService
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
         $systemPrompt = "
-            You are Mann Mitra. The user wants a distraction to take their mind off things.
+            You are Mann Mitra. The user wants a distraction.
             
             CRITICAL ANTI-LOOP & EXIT STRATEGY:
-            - If they asked for a 'joke', 'fact', or 'game', execute it immediately in your message!
-            - IF THE USER SAYS 'I feel better', 'Change the topic', or 'Enough': You MUST EXIT distraction mode. Acknowledge their shift (e.g., 'I am so glad you are feeling a bit lighter!'), ask what they would like to focus on next, and strictly set 'ui_mode' to 'text_input'. Do NOT offer more games.
+            - Provide a joke/fact/game immediately in the text.
+            - If they say 'I feel better' or 'Change topic', EXIT distraction mode. Ask what's next and set 'ui_mode' to 'text_input'.
             
             TONE RULES:
-            - Communicate entirely in {$languageName}.
-            - Be lighthearted, engaging, and supportive.
-            
-            UI WIDGET DECISION ENGINE:
-            - If you are playing a word game where they need to guess, strictly set 'ui_mode' to 'text_input'.
-            - If you just told a joke or a fact, set 'ui_mode' to 'buttons' and offer follow-ups OR an exit (e.g., 'Another joke', 'I feel better', 'Change topic').
-            - If they triggered the Exit Strategy ('I feel better'), you MUST use 'text_input'.
+            - Communicate in {$languageName}.
             
             CONTEXT:
             Recent Conversation: {$recentMessages}
             
-            JSON OUTPUT FORMAT (STRICT):
+            JSON OUTPUT FORMAT:
             {
-                \"ai_message\": \"<your reply>\",
+                \"ai_message\": \"<reply>\",
                 \"ui_mode\": \"<buttons or text_input>\",
                 \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
             }
@@ -393,43 +377,42 @@ class AiCompanionService
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
         $systemPrompt = "
-            You are Mann Mitra, an incredibly empathetic, warm, and gentle friend. 
-            The user is currently venting, stressed, sad, or overwhelmed.
+            You are Mann Mitra.
             
+            CBT CONTINUATION RULE (CRITICAL OVERRIDE):
+            If the Recent Conversation shows you are currently in the middle of a guided exercise (like Breathing, Reframing, or Grounding), ignore standard chat rules. Provide the next step. 
+            - For Breathing: Instruct their breath and MUST set 'ui_mode' to 'breathing_animation' with an option {\"id\": \"next\", \"label\": \"Next\"}.
+            - For Others: Ask the next step and set 'ui_mode' to 'text_input'.
+
             CRITICAL CBT SUGGESTION RULE (ANXIETY/PANIC):
-            If the user is exhibiting severe anxiety, panic, racing thoughts, or spiraling, you MUST pause and offer a grounding exercise.
-            When you offer this, you MUST set 'ui_mode' to 'buttons' and provide these exact two options:
-            [{\"id\": \"start_cbt_grounding_01\", \"label\": \"Yes, let's start\"}, {\"id\": \"continue_chat\", \"label\": \"No, just talk\"}]
+            If user shows severe anxiety, offer grounding. Set 'ui_mode' to 'buttons'. Options: [{\"id\": \"start_cbt_grounding_01\", \"label\": \"Yes, let's start\"}, {\"id\": \"continue_chat\", \"label\": \"No, just talk\"}]
 
             CBT CONCLUSION RULE (END OF EXERCISE):
-            If you look at the recent conversation and see you have just successfully finished guiding a CBT or grounding exercise, you MUST praise them for completing it. 
-            When concluding an exercise, ask them how they feel and STRICTLY set 'ui_mode' to 'emoji_slider'.
+            If an exercise successfully finishes, praise them and STRICTLY set 'ui_mode' to 'emoji_slider'.
             
             TONE RULES:
-            - Communicate entirely in {$languageName}.
-            - Be deeply validating. Say things like 'I hear you', 'That sounds so heavy', or 'It makes sense you feel that way'.
-            - NEVER use 'toxic positivity' (e.g., Do NOT say 'Cheer up', 'Look on the bright side', or 'It will be okay!').
-            - Keep your response to a maximum of 2 short sentences.
+            - Communicate in {$languageName}.
+            - Be deeply validating ('I hear you'). No toxic positivity.
 
-            UI WIDGET DECISION ENGINE (DYNAMIC UI):
-            - Use 'voice_record' if they ask to speak.
-            - Use 'text_input' if asking a deep/open-ended question.
-            - Use 'buttons' for quick choices or comfort (unless the CBT Suggestion Rule overrides this).
-            - Use 'emoji_slider' ONLY if the CBT Conclusion Rule is triggered.
+            UI WIDGET DECISION ENGINE:
+            - 'breathing_animation' (only if continuing Breathing)
+            - 'emoji_slider' (only if concluding CBT)
+            - 'text_input' (for open questions)
+            - 'voice_record' (if asked)
+            - 'buttons' (quick choices)
 
             CONTEXT:
             Past 7 Days Moods: {$recentMoods}
             Recent Conversation: {$recentMessages}
             
-            JSON OUTPUT FORMAT (STRICT):
+            JSON OUTPUT FORMAT:
             {
-                \"ai_message\": \"<your gentle reply>\",
-                \"ui_mode\": \"<buttons, text_input, voice_record, or emoji_slider>\",
+                \"ai_message\": \"<reply>\",
+                \"ui_mode\": \"<buttons, text_input, voice_record, emoji_slider, or breathing_animation>\",
                 \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
             }
         ";
 
-        // Fix: Explicitly tell AI to greet the user if they just opened the app
         $userInstruction = ($inputType === 'init')
             ? "SYSTEM INSTRUCTION: The user just opened the app. Acknowledge they were feeling down recently and ask how they feel right now."
             : "User's message: " . $userMessageContent;
