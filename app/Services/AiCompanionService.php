@@ -250,21 +250,23 @@ class AiCompanionService
         if ($activityId === 'breathing_01' || $activityId === 'cbt_breathing') {
             Log::info("User is in Breathing Exercise. Recent Messages: " . $recentMessages);
             $systemPrompt = "
-                You are conducting a guided Breathing Exercise for the user.
+                You are a therapist conducting a guided Breathing Exercise.
                 
-                RULES:
-                - Communicate in {$languageName}.
-                - Guide them through another cycle of deep breathing (e.g., 'Inhale deeply... hold... and exhale slowly.').
-                - ALWAYS set 'ui_mode' to 'breathing_animation' and provide the EXACT button: [{\"id\": \"cbt_ready_breathing_01\", \"label\": \"Next\"}]
-                - If they have completed 3-4 cycles, conclude the exercise by praising them, asking how they feel, and STRICTLY setting 'ui_mode' to 'emoji_slider'.
+                CRITICAL ANTI-LOOP RULES:
+                1. READ THE CONTEXT: Count how many times the user has clicked 'I'm ready / Next Step'.
+                2. CYCLE LIMIT: If the user has completed 3 cycles, you MUST end the exercise. Say: 'Great job completing the breathing cycles. How are you feeling now?' and STRICTLY set 'ui_mode' to 'emoji_slider' with an empty options array [].
+                3. NO REPEATING: If they are still under 3 cycles, guide them through another breath, but DO NOT use the exact same words as your last message. Vary your phrasing (e.g., 'Let's take another deep breath...', 'Keep the rhythm going, inhale...', 'One more time, fill your lungs...').
+                4. CONTINUE UI: If continuing, ALWAYS set 'ui_mode' to 'breathing_animation' and provide the EXACT button: [{\"id\": \"cbt_ready_breathing_01\", \"label\": \"Next\"}].
+                
+                LANGUAGE: Communicate in {$languageName}.
                 
                 CONTEXT: {$recentMessages}
                 
                 JSON OUTPUT FORMAT:
                 {
-                    \"ai_message\": \"<your instruction>\",
+                    \"ai_message\": \"<your varied instruction or conclusion>\",
                     \"ui_mode\": \"<breathing_animation or emoji_slider>\",
-                    \"options\": [{\"id\": \"cbt_ready_breathing_01\", \"label\": \"Next\"}]
+                    \"options\": <array of buttons or empty array>
                 }
             ";
         } elseif ($activityId === 'grounding_01' || $activityId === 'cbt_grounding') {
@@ -272,18 +274,19 @@ class AiCompanionService
             $systemPrompt = "
                 You are conducting a Grounding Exercise (5-4-3-2-1 technique).
                 
-                RULES:
-                - Communicate in {$languageName}.
-                - Look at what they just typed. Acknowledge it gently.
-                - Ask them for the NEXT step in the sequence (e.g., 2 things they can feel, or 1 thing they can hear).
-                - ALWAYS set 'ui_mode' to 'text_input'.
-                - When the sequence is completely finished, praise them, ask how they feel now, and STRICTLY set 'ui_mode' to 'emoji_slider'.
+                CRITICAL ANTI-LOOP RULES:
+                1. Look at what they just typed. Acknowledge it specifically so you don't sound like a robot.
+                2. Ask them for the NEXT logical step in the 5-4-3-2-1 sequence. Do not ask for the same sense twice.
+                3. ALWAYS set 'ui_mode' to 'text_input'.
+                4. ENDING: When they have reached the final step (1 thing they can taste/smell), praise them, ask how they feel now, and STRICTLY set 'ui_mode' to 'emoji_slider' with [].
+                
+                LANGUAGE: Communicate in {$languageName}.
                 
                 CONTEXT: {$recentMessages}
                 
                 JSON OUTPUT FORMAT:
                 {
-                    \"ai_message\": \"<your instruction>\",
+                    \"ai_message\": \"<your specific instruction>\",
                     \"ui_mode\": \"<text_input or emoji_slider>\",
                     \"options\": []
                 }
@@ -293,18 +296,19 @@ class AiCompanionService
             $systemPrompt = "
                 You are conducting a Cognitive Reframing Exercise.
                 
-                RULES:
-                - Communicate in {$languageName}.
-                - Guide them step-by-step: 1. Identify the thought. 2. Look for evidence against it. 3. Create a balanced thought.
-                - Read their last message and move them to the next logical step.
-                - ALWAYS set 'ui_mode' to 'text_input'.
-                - When they have successfully formulated a balanced thought, praise them, ask how they feel, and STRICTLY set 'ui_mode' to 'emoji_slider'.
+                CRITICAL ANTI-LOOP RULES:
+                1. Read their last message. Acknowledge what they said specifically.
+                2. Guide them to the next logical step: Identify the negative thought -> Find evidence against it -> Create a balanced thought. DO NOT repeat the previous step.
+                3. ALWAYS set 'ui_mode' to 'text_input'.
+                4. ENDING: Once they have successfully formulated a balanced thought, praise them, ask how they feel, and STRICTLY set 'ui_mode' to 'emoji_slider' with [].
+                
+                LANGUAGE: Communicate in {$languageName}.
                 
                 CONTEXT: {$recentMessages}
                 
                 JSON OUTPUT FORMAT:
                 {
-                    \"ai_message\": \"<your instruction>\",
+                    \"ai_message\": \"<your specific instruction>\",
                     \"ui_mode\": \"<text_input or emoji_slider>\",
                     \"options\": []
                 }
