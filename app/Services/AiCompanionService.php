@@ -54,14 +54,21 @@ class AiCompanionService
                 break;
 
             case 'buttons':
-                // ENHANCED INTERCEPTOR: Make button clicks readable for the AI
+                // THE CBT INTERCEPTOR
                 if (str_starts_with($inputValue, 'start_cbt_')) {
                     $cbtId = str_replace('start_cbt_', '', $inputValue);
                     $inputType = 'init_cbt';
                     $inputValue = $cbtId;
                     $userMessageContent = "[User accepted AI suggestion to start CBT Exercise: $cbtId]";
-                } elseif ($inputValue === 'next') {
-                    $userMessageContent = "[User clicked 'Next / I am ready']";
+                }
+                // NEW: Catch "I'm ready" or "Next" and bypass triage entirely!
+                elseif (str_starts_with($inputValue, 'cbt_ready_')) {
+                    $activityId = str_replace('cbt_ready_', '', $inputValue);
+                    $userMessageContent = "[User clicked: I'm ready / Next Step]";
+
+                    // Save message and GO DIRECTLY TO EXERCISE ROUTE!
+                    $this->repo->createMessage($session->id, 'user', 'text', $userMessageContent);
+                    return $this->handleCbtExerciseRoute($session, $user, $activityId, $userMessageContent);
                 } else {
                     $userMessageContent = "[User selected button ID: $inputValue]";
                 }
@@ -101,26 +108,30 @@ class AiCompanionService
             return $this->handleCbtInitRoute($session, $user, $inputValue);
         }
 
+        $recentMessages = $this->repo->getRecentMessages($session->id);
+
         // 4. The Triage Step
         $intent = ($inputType === 'init')
             ? \App\Enums\UserIntent::HAPPY_CASUAL
-            : $this->classifyUserIntent($inputValue, $user->language);
+            : $this->classifyUserIntent($inputValue, $user->language, $recentMessages);
 
         // 5. The Router
         switch ($intent) {
-            case UserIntent::CRISIS:
+            // Route Text-based exercises (Reframing/Grounding) to the unified engine
+            case 'cbt_breathing':
+            case 'cbt_grounding':
+            case 'cbt_reframing':
+                return $this->handleCbtExerciseRoute($session, $user, $intent, $userMessageContent);
+
+            case 'crisis':
                 return $this->handleCrisisRoute($session, $user, $inputType, $userMessageContent);
-
-            case UserIntent::HAPPY_CASUAL:
+            case 'happy_casual':
                 return $this->handleHappyRoute($session, $user, $inputType, $userMessageContent);
-
-            case UserIntent::JOURNALING:
+            case 'journaling':
                 return $this->handleJournalingRoute($session, $user, $inputType, $userMessageContent);
-
-            case UserIntent::NEEDS_DISTRACTION:
+            case 'needs_distraction':
                 return $this->handleDistractionRoute($session, $user, $inputType, $userMessageContent);
-
-            case UserIntent::VENTING_SAD:
+            case 'venting_sad':
             default:
                 return $this->handleVentingRoute($session, $user, $inputType, $userMessageContent);
         }
@@ -133,37 +144,35 @@ class AiCompanionService
             $welcomeText = "Namaste {$user->name}, main Mann Mitra hoon. Main yahan sirf aapko sunne ke liye hoon, bina kisi judgment ke. Abhi aap kaisa mehsoos kar rahe hain?";
         }
         $this->repo->createMessage($session->id, 'ai', 'text', $welcomeText);
-        return [
-            'node_id' => 'msg_welcome_1',
-            'ai_message' => $welcomeText,
-            'ui_mode' => 'emoji_slider',
-            'options' => []
-        ];
+        return ['node_id' => 'msg_welcome_1', 'ai_message' => $welcomeText, 'ui_mode' => 'emoji_slider', 'options' => []];
     }
 
-    private function classifyUserIntent($inputValue, $userLanguage)
+    private function classifyUserIntent($inputValue, $userLanguage, $recentMessages)
     {
-        if (empty(trim($inputValue))) {
-            return UserIntent::HAPPY_CASUAL;
-        }
+        if (empty(trim($inputValue))) return 'happy_casual';
 
         $languageName = ($userLanguage === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
         $systemPrompt = "
             You are an ultra-fast triage routing assistant for a mental health app.
-            Your ONLY job is to analyze the user's latest message and classify their emotional intent.
+            Analyze the user's latest message AND the Recent Conversation to classify their intent.
             
             CATEGORIES:
-            - 'crisis': Self-harm, extreme panic, abuse, absolute hopelessness, or immediate danger.
-            - 'venting_sad': Crying, stressed, complaining, anxious, lonely, or feeling down.
-            - 'happy_casual': Good news, casual greetings, normal non-stressful chat, or clicking 'next'.
+            - 'cbt_breathing': The user is currently participating in the Breathing exercise.
+            - 'cbt_grounding': The user is currently participating in a Grounding exercise (e.g. 5-4-3-2-1).
+            - 'cbt_reframing': The user is currently answering questions for a Cognitive Reframing exercise.
+            - 'crisis': Self-harm, extreme panic, or immediate danger.
+            - 'venting_sad': Crying, stressed, complaining, anxious, lonely.
+            - 'happy_casual': Good news, casual greetings, normal non-stressful chat.
             - 'journaling': Explicitly wants to save a diary entry.
             - 'needs_distraction': Bored, asking for a game, or wanting to change the subject.
 
             RULES:
             1. Output STRICTLY in JSON format.
-            2. Do NOT include any other text.
-            3. Language: {$languageName}.
+            2. If the recent conversation shows an active, unfinished exercise, you MUST return the corresponding 'cbt_' category.
+
+            CONTEXT:
+            Recent Conversation: {$recentMessages}
 
             EXPECTED OUTPUT FORMAT:
             {
@@ -171,17 +180,12 @@ class AiCompanionService
             }
         ";
 
-        $userInstruction = "User's message: \"" . $inputValue . "\"";
-
         try {
-            $response = $this->openAi->getUserIntentUsingMini($systemPrompt, $userInstruction);
-            if (isset($response['intent']) && in_array($response['intent'], \App\Enums\UserIntent::all())) {
-                return $response['intent'];
-            }
-            return UserIntent::VENTING_SAD;
+            $response = $this->openAi->getUserIntentUsingMini($systemPrompt, "User's message: \"" . $inputValue . "\"");
+            if (isset($response['intent'])) return $response['intent'];
+            return 'venting_sad';
         } catch (\Exception $e) {
-            Log::warning('Triage Classification Failed: ' . $e->getMessage());
-            return UserIntent::VENTING_SAD;
+            return 'venting_sad';
         }
     }
 
@@ -192,16 +196,11 @@ class AiCompanionService
             $welcomeText = "Namaste {$user->name}! Aaj aap kaisa mehsoos kar rahe hain?";
         }
         $this->repo->createMessage($session->id, 'ai', 'text', $welcomeText);
-        return [
-            'node_id' => 'msg_daily_mood_' . time(),
-            'ai_message' => $welcomeText,
-            'ui_mode' => 'emoji_slider',
-            'options' => []
-        ];
+        return ['node_id' => 'msg_daily_mood_' . time(), 'ai_message' => $welcomeText, 'ui_mode' => 'emoji_slider', 'options' => []];
     }
 
     // =========================================================================
-    // PHASE 3: SPECIALIZED ROUTE HANDLERS
+    // PHASE 3: CBT ENGINE (INITIALIZATION & DEDICATED CONDUCTOR)
     // =========================================================================
 
     private function handleCbtInitRoute($session, $user, $activityId)
@@ -210,19 +209,24 @@ class AiCompanionService
 
         if ($activityId === 'breathing_01') {
             $aiMessage = "Welcome to the Breathing Exercise. Let's begin by taking a deep breath in...";
-            if ($user->language === 'hi') { $aiMessage = "Swagat hai. Chaliye ek gehri saans lene se shuru karte hain..."; }
+            if ($user->language === 'hi') {
+                $aiMessage = "Swagat hai. Chaliye ek gehri saans lene se shuru karte hain...";
+            }
             $uiMode = 'breathing_animation';
-            $options = [['id' => 'next', 'label' => "I'm ready"]];
-        } 
-        elseif ($activityId === 'grounding_01') {
+            // NEW: The button ID triggers the bypass!
+            $options = [['id' => 'cbt_ready_breathing_01', 'label' => "I'm ready"]];
+        } elseif ($activityId === 'grounding_01') {
             $aiMessage = "Let's do a quick grounding exercise together. Look around the room and type out 3 things you can see right now.";
-            if ($user->language === 'hi') { $aiMessage = "Chaliye grounding exercise karte hain. Apne aas-paas dekhiye aur 3 cheezein bataiye jo aap dekh sakte hain."; }
+            if ($user->language === 'hi') {
+                $aiMessage = "Chaliye grounding exercise karte hain. Apne aas-paas dekhiye aur 3 cheezein bataiye jo aap dekh sakte hain.";
+            }
             $uiMode = 'text_input';
             $options = [];
-        }
-        else {
+        } else {
             $aiMessage = "Welcome to Reframing. Let's work through your thoughts together. What is a negative thought you've been having recently?";
-            if ($user->language === 'hi') { $aiMessage = "Chaliye aapki pareshaniyo par baat karte hain. Aapke dimaag mein kya chal raha hai?"; }
+            if ($user->language === 'hi') {
+                $aiMessage = "Chaliye aapki pareshaniyo par baat karte hain. Aapke dimaag mein kya chal raha hai?";
+            }
             $uiMode = 'text_input';
             $options = [];
         }
@@ -237,39 +241,99 @@ class AiCompanionService
         ];
     }
 
+    private function handleCbtExerciseRoute($session, $user, $activityId, $userMessageContent)
+    {
+        // This is the new centralized AI Engine that conducts the exercises!
+        $recentMessages = $this->repo->getRecentMessages($session->id);
+        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+
+        if ($activityId === 'breathing_01' || $activityId === 'cbt_breathing') {
+            $systemPrompt = "
+                You are conducting a guided Breathing Exercise for the user.
+                
+                RULES:
+                - Communicate in {$languageName}.
+                - Guide them through another cycle of deep breathing (e.g., 'Inhale deeply... hold... and exhale slowly.').
+                - ALWAYS set 'ui_mode' to 'breathing_animation' and provide the EXACT button: [{\"id\": \"cbt_ready_breathing_01\", \"label\": \"Next\"}]
+                - If they have completed 3-4 cycles, conclude the exercise by praising them, asking how they feel, and STRICTLY setting 'ui_mode' to 'emoji_slider'.
+                
+                CONTEXT: {$recentMessages}
+                
+                JSON OUTPUT FORMAT:
+                {
+                    \"ai_message\": \"<your instruction>\",
+                    \"ui_mode\": \"<breathing_animation or emoji_slider>\",
+                    \"options\": [{\"id\": \"cbt_ready_breathing_01\", \"label\": \"Next\"}]
+                }
+            ";
+        } elseif ($activityId === 'grounding_01' || $activityId === 'cbt_grounding') {
+            $systemPrompt = "
+                You are conducting a Grounding Exercise (5-4-3-2-1 technique).
+                
+                RULES:
+                - Communicate in {$languageName}.
+                - Look at what they just typed. Acknowledge it gently.
+                - Ask them for the NEXT step in the sequence (e.g., 2 things they can feel, or 1 thing they can hear).
+                - ALWAYS set 'ui_mode' to 'text_input'.
+                - When the sequence is completely finished, praise them, ask how they feel now, and STRICTLY set 'ui_mode' to 'emoji_slider'.
+                
+                CONTEXT: {$recentMessages}
+                
+                JSON OUTPUT FORMAT:
+                {
+                    \"ai_message\": \"<your instruction>\",
+                    \"ui_mode\": \"<text_input or emoji_slider>\",
+                    \"options\": []
+                }
+            ";
+        } else {
+            $systemPrompt = "
+                You are conducting a Cognitive Reframing Exercise.
+                
+                RULES:
+                - Communicate in {$languageName}.
+                - Guide them step-by-step: 1. Identify the thought. 2. Look for evidence against it. 3. Create a balanced thought.
+                - Read their last message and move them to the next logical step.
+                - ALWAYS set 'ui_mode' to 'text_input'.
+                - When they have successfully formulated a balanced thought, praise them, ask how they feel, and STRICTLY set 'ui_mode' to 'emoji_slider'.
+                
+                CONTEXT: {$recentMessages}
+                
+                JSON OUTPUT FORMAT:
+                {
+                    \"ai_message\": \"<your instruction>\",
+                    \"ui_mode\": \"<text_input or emoji_slider>\",
+                    \"options\": []
+                }
+            ";
+        }
+
+        return $this->executeAiRoute($session, $systemPrompt, "User input: " . $userMessageContent);
+    }
+
+    // =========================================================================
+    // STANDARD CHAT ROUTES
+    // =========================================================================
+
     private function handleCrisisRoute($session, $user, $inputType, $userMessageContent)
     {
         $this->repo->flagLatestMessageAsCrisis($session->id);
         $this->repo->createCrisisAlert($session->id, 'AI Triage Detected Crisis');
-
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
         $systemPrompt = "
-            You are Mann Mitra, a crisis-intervention companion. 
-            The user is in acute distress.
+            You are Mann Mitra, a crisis-intervention companion. The user is in acute distress.
+            TONE RULES: Communicate in {$languageName}. Be gentle, grounding, and safe. Max 2 short sentences.
+            UI WIDGET DECISION: MUST set 'ui_mode' to 'crisis_cards'.
             
-            TONE RULES:
-            - Communicate in {$languageName}.
-            - Be gentle, grounding, and safe.
-            - Keep it to a maximum of 2 short sentences.
-            
-            UI WIDGET DECISION ENGINE:
-            - You MUST set 'ui_mode' to 'crisis_cards'.
-            
-            JSON OUTPUT FORMAT (STRICT):
+            JSON OUTPUT FORMAT:
             {
-                \"ai_message\": \"<your grounding message>\",
+                \"ai_message\": \"<message>\",
                 \"ui_mode\": \"crisis_cards\",
-                \"options\": [
-                    {\"id\": \"9152987821\", \"label\": \"Call iCall\"},
-                    {\"id\": \"9820466726\", \"label\": \"Call AASRA\"},
-                    {\"id\": \"18602662345\", \"label\": \"Call Vandrevala\"}
-                ]
+                \"options\": [{\"id\": \"9152987821\", \"label\": \"Call iCall\"}, {\"id\": \"9820466726\", \"label\": \"Call AASRA\"}, {\"id\": \"18602662345\", \"label\": \"Call Vandrevala\"}]
             }
         ";
-
-        $userInstruction = "User's message: " . $userMessageContent;
-        return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
+        return $this->executeAiRoute($session, $systemPrompt, "User's message: " . $userMessageContent);
     }
 
     private function handleHappyRoute($session, $user, $inputType, $userMessageContent)
@@ -279,65 +343,34 @@ class AiCompanionService
 
         $systemPrompt = "
             You are Mann Mitra.
+            TONE & EXIT STRATEGY: Communicate in {$languageName}. If they just said 'I feel better', validate it warmly. Pivot back to a normal conversation with a grounded question.
+            UI WIDGET DECISION: Use 'voice_record' if asked. Use 'text_input' for open-ended questions. Use 'buttons' for quick choices.
+            CONTEXT: {$recentMessages}
             
-            CBT CONTINUATION RULE (CRITICAL OVERRIDE):
-            If the Recent Conversation shows you are currently in the middle of a guided exercise (like Breathing, Reframing, or Grounding), ignore standard chat rules. Provide the next step. 
-            - For Breathing: Instruct their breath and MUST set 'ui_mode' to 'breathing_animation' with a 'Next' button.
-            - For Others: Ask the next step and set 'ui_mode' to 'text_input'.
-
-            TONE & EXIT STRATEGY:
-            - Communicate in {$languageName}.
-            - If they just said 'I feel better', validate it warmly.
-            - Pivot back to a normal conversation with a grounded question.
-
-            UI WIDGET DECISION ENGINE:
-            - Use 'voice_record' if asked.
-            - Use 'breathing_animation' ONLY if continuing a breathing exercise.
-            - Use 'text_input' for open-ended questions.
-            - Use 'buttons' for quick choices.
-
-            CONTEXT:
-            Recent Conversation: {$recentMessages}
-            
-            JSON OUTPUT FORMAT (STRICT):
+            JSON OUTPUT FORMAT:
             {
                 \"ai_message\": \"<reply>\",
-                \"ui_mode\": \"<buttons, text_input, voice_record, or breathing_animation>\",
+                \"ui_mode\": \"<buttons, text_input, or voice_record>\",
                 \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
             }
         ";
 
-        $userInstruction = ($inputType === 'init') 
-            ? "SYSTEM INSTRUCTION: The user just opened the app. Greet them warmly."
-            : "User's message: " . $userMessageContent;
-
+        $userInstruction = ($inputType === 'init') ? "SYSTEM INSTRUCTION: The user just opened the app. Greet them warmly." : "User's message: " . $userMessageContent;
         return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
     }
 
     private function handleJournalingRoute($session, $user, $inputType, $userMessageContent)
     {
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
-
         $systemPrompt = "
             You are Mann Mitra. The user wants to journal.
-            
-            TONE RULES:
-            - Communicate in {$languageName}.
-            - Be supportive and reflective.
-            
-            UI WIDGET DECISION ENGINE:
-            - Set 'ui_mode' to 'text_input'.
+            TONE RULES: Communicate in {$languageName}. Be supportive and reflective.
+            UI WIDGET DECISION: Set 'ui_mode' to 'text_input'.
             
             JSON OUTPUT FORMAT:
-            {
-                \"ai_message\": \"<short prompt>\",
-                \"ui_mode\": \"text_input\",
-                \"options\": []
-            }
+            { \"ai_message\": \"<short prompt>\", \"ui_mode\": \"text_input\", \"options\": [] }
         ";
-
-        $userInstruction = "User's message: " . $userMessageContent;
-        return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
+        return $this->executeAiRoute($session, $systemPrompt, "User's message: " . $userMessageContent);
     }
 
     private function handleDistractionRoute($session, $user, $inputType, $userMessageContent)
@@ -347,27 +380,13 @@ class AiCompanionService
 
         $systemPrompt = "
             You are Mann Mitra. The user wants a distraction.
-            
-            CRITICAL ANTI-LOOP & EXIT STRATEGY:
-            - Provide a joke/fact/game immediately in the text.
-            - If they say 'I feel better' or 'Change topic', EXIT distraction mode. Ask what's next and set 'ui_mode' to 'text_input'.
-            
-            TONE RULES:
-            - Communicate in {$languageName}.
-            
-            CONTEXT:
-            Recent Conversation: {$recentMessages}
+            CRITICAL ANTI-LOOP: Provide a joke/fact/game immediately. If they say 'I feel better', EXIT distraction mode. Ask what's next and set 'ui_mode' to 'text_input'.
+            CONTEXT: {$recentMessages}
             
             JSON OUTPUT FORMAT:
-            {
-                \"ai_message\": \"<reply>\",
-                \"ui_mode\": \"<buttons or text_input>\",
-                \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
-            }
+            { \"ai_message\": \"<reply>\", \"ui_mode\": \"<buttons or text_input>\", \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}] }
         ";
-
-        $userInstruction = "User's message: " . $userMessageContent;
-        return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
+        return $this->executeAiRoute($session, $systemPrompt, "User's message: " . $userMessageContent);
     }
 
     private function handleVentingRoute($session, $user, $inputType, $userMessageContent)
@@ -378,45 +397,15 @@ class AiCompanionService
 
         $systemPrompt = "
             You are Mann Mitra.
-            
-            CBT CONTINUATION RULE (CRITICAL OVERRIDE):
-            If the Recent Conversation shows you are currently in the middle of a guided exercise (like Breathing, Reframing, or Grounding), ignore standard chat rules. Provide the next step. 
-            - For Breathing: Instruct their breath and MUST set 'ui_mode' to 'breathing_animation' with an option {\"id\": \"next\", \"label\": \"Next\"}.
-            - For Others: Ask the next step and set 'ui_mode' to 'text_input'.
-
-            CRITICAL CBT SUGGESTION RULE (ANXIETY/PANIC):
-            If user shows severe anxiety, offer grounding. Set 'ui_mode' to 'buttons'. Options: [{\"id\": \"start_cbt_grounding_01\", \"label\": \"Yes, let's start\"}, {\"id\": \"continue_chat\", \"label\": \"No, just talk\"}]
-
-            CBT CONCLUSION RULE (END OF EXERCISE):
-            If an exercise successfully finishes, praise them and STRICTLY set 'ui_mode' to 'emoji_slider'.
-            
-            TONE RULES:
-            - Communicate in {$languageName}.
-            - Be deeply validating ('I hear you'). No toxic positivity.
-
-            UI WIDGET DECISION ENGINE:
-            - 'breathing_animation' (only if continuing Breathing)
-            - 'emoji_slider' (only if concluding CBT)
-            - 'text_input' (for open questions)
-            - 'voice_record' (if asked)
-            - 'buttons' (quick choices)
-
-            CONTEXT:
-            Past 7 Days Moods: {$recentMoods}
-            Recent Conversation: {$recentMessages}
+            CRITICAL CBT SUGGESTION RULE: If user shows severe anxiety, offer grounding. Set 'ui_mode' to 'buttons'. Options: [{\"id\": \"start_cbt_grounding_01\", \"label\": \"Yes, let's start\"}, {\"id\": \"continue_chat\", \"label\": \"No, just talk\"}]
+            TONE RULES: Communicate in {$languageName}. Be deeply validating ('I hear you'). No toxic positivity.
+            CONTEXT: Past 7 Days Moods: {$recentMoods} | Recent Conversation: {$recentMessages}
             
             JSON OUTPUT FORMAT:
-            {
-                \"ai_message\": \"<reply>\",
-                \"ui_mode\": \"<buttons, text_input, voice_record, emoji_slider, or breathing_animation>\",
-                \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
-            }
+            { \"ai_message\": \"<reply>\", \"ui_mode\": \"<buttons, text_input, or voice_record>\", \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}] }
         ";
 
-        $userInstruction = ($inputType === 'init')
-            ? "SYSTEM INSTRUCTION: The user just opened the app. Acknowledge they were feeling down recently and ask how they feel right now."
-            : "User's message: " . $userMessageContent;
-
+        $userInstruction = ($inputType === 'init') ? "SYSTEM INSTRUCTION: The user just opened the app. Acknowledge they were feeling down recently and ask how they feel right now." : "User's message: " . $userMessageContent;
         return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
     }
 
