@@ -10,17 +10,19 @@ class WhatsAppController extends Controller
 {
     public function handleWebhook(Request $request)
     {
-        Log::info('Whapi Webhook Received: ', $request->all());
+        Log::info('1. Whapi Webhook Received: ', $request->all());
 
         $messages = $request->input('messages', []);
-        if(empty($messages)) {
+        if (empty($messages)) {
             Log::warning('No messages found in the webhook payload.');
-           return response()->json(['status' => 'ignored', 'reason' => 'No messages found']);
+            return response()->json(['status' => 'ignored', 'reason' => 'No messages found']);
         }
 
-        $messages = $messages[0];
+        // BUG FIX: Changed $messages to $message (singular)
+        $message = $messages[0];
 
         if (isset($message['from_me']) && $message['from_me'] === true) {
+            Log::info('2. Ignored: Message is from bot');
             return response()->json(['status' => 'ignored', 'reason' => 'Message is from bot']);
         }
 
@@ -28,21 +30,27 @@ class WhatsAppController extends Controller
         $userText = $message['text']['body'] ?? null;
 
         if (!$userText) {
+            Log::info('3. Ignored: Not a text message');
             return response()->json(['status' => 'ignored', 'reason' => 'Not a text message']);
         }
+
+        Log::info('4. Text extracted successfully: ' . $userText);
 
         $cleanNumber = explode('@', $senderId)[0];
 
         $allowedNumbers = [
-            '94722561060',
+            '94722561060', // Musharraf's number
         ];
 
         if (!in_array($cleanNumber, $allowedNumbers)) {
-            Log::warning('Unauthorized sender: ' . $cleanNumber);
+            Log::warning('5. Unauthorized sender: ' . $cleanNumber);
             return response()->json(['status' => 'ignored', 'reason' => 'Unauthorized sender']);
         }
 
+        Log::info('6. Sending to OpenAI...');
         $aiResponseText = $this->getOpenAiResponse($userText);
+
+        Log::info('7. OpenAI replied: ' . $aiResponseText);
 
         $this->sendWhatsAppMessage($senderId, $aiResponseText);
 
@@ -75,7 +83,6 @@ class WhatsAppController extends Controller
             Log::error('OpenAI Error: ' . $e->getMessage());
             return 'I am having trouble thinking right now. Please try again later.';
         }
-
     }
 
     private function sendWhatsAppMessage($to, $text)
@@ -83,7 +90,9 @@ class WhatsAppController extends Controller
         $whapiUrl = env('WHAPI_URL');
         $whapiToken = env('WHAPI_TOKEN');
 
-        Http::withHeaders([
+        Log::info("8. Sending back to Whapi... To: $to");
+
+        $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $whapiToken,
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
@@ -91,5 +100,11 @@ class WhatsAppController extends Controller
             'to' => $to,
             'body' => $text,
         ]);
+
+        if ($response->successful()) {
+            Log::info('9. SUCCESS! Message sent to WhatsApp.');
+        } else {
+            Log::error('9. WHAPI ERROR: ' . $response->body());
+        }
     }
 }
