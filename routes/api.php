@@ -13,6 +13,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WhatsAppController;
 use App\Http\Middleware\CheckAdminRole;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +27,7 @@ Route::prefix('v1')->group(function () {
 
     Route::post('/sessions/start', [AuthController::class, 'guestLogin']);
     Route::post('/auth/login', [AuthController::class, 'apiLogin']);
+    Route::post('/whatsapp/webhook', [WhatsAppController::class, 'handleWebhook']);
 
     Route::middleware(['auth:sanctum'])->group(function () {
 
