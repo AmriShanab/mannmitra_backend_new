@@ -59,26 +59,30 @@ class WhatsAppController extends Controller
 
     private function getOpenAiResponse($userText)
     {
+        $systemPrompt = "You are Mann Mitra, a supportive, warm, and non-judgmental mental health companion and friend on WhatsApp. 
+        
+        CORE RULES:
+        1. MIRROR THE LANGUAGE: Detect the language and script the user is typing in and reply in that EXACT same language.
+        2. WHATSAPP STYLE: Keep messages extremely concise (1-3 short sentences max). Use emojis naturally.
+        3. THE PERSONA: Talk like a caring best friend, not a clinical doctor. Validate their feelings.
+        4. TEXT-BASED EXERCISES: If the user is anxious, gently offer a text-based exercise. (e.g., 'Look around and type out 3 things you can see.').
+        5. NO APP UI: NEVER ask the user to 'click a button' or 'use the slider'. 
+        6. CRISIS PROTOCOL: If the user expresses intent for self-harm, provide emergency contacts immediately.
+        7. NO JSON: Output ONLY the raw conversational text.";
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
                 'Content-Type' => 'application/json',
             ])->post('https://api.openai.com/v1/chat/completions', [
-                'model' => 'gpt-3.5-turbo', // or gpt-4o-mini
+                'model' => 'gpt-3.5-turbo',
                 'messages' => [
-                    [
-                        'role' => 'system',
-                        'content' => 'You are Mann Mitra, a helpful and friendly mental health companion on WhatsApp. Keep your answers concise, warm, and use emojis naturally.'
-                    ],
-                    [
-                        'role' => 'user',
-                        'content' => $userText
-                    ]
+                    ['role' => 'system', 'content' => $systemPrompt],
+                    ['role' => 'user', 'content' => $userText]
                 ],
             ]);
 
             return $response->json('choices.0.message.content') ?? 'Sorry, my brain is offline right now!';
-            
         } catch (\Exception $e) {
             Log::error('OpenAI Error: ' . $e->getMessage());
             return 'I am having trouble thinking right now. Please try again later.';
