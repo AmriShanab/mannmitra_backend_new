@@ -39,7 +39,7 @@ class WhatsAppController extends Controller
         $cleanNumber = explode('@', $senderId)[0];
 
         $allowedNumbers = [
-            '94722561060',
+            '94754126817',
             '94783099340'
         ];
 
