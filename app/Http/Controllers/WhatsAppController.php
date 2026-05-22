@@ -5,24 +5,22 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Models\WhatsappMessage; // Make sure to import the new model!
 
 class WhatsAppController extends Controller
 {
     public function handleWebhook(Request $request)
     {
-        Log::info('1. Whapi Webhook Received: ', $request->all());
+        Log::info('1. Whapi Webhook Received');
 
         $messages = $request->input('messages', []);
         if (empty($messages)) {
-            Log::warning('No messages found in the webhook payload.');
             return response()->json(['status' => 'ignored', 'reason' => 'No messages found']);
         }
 
-        // BUG FIX: Changed $messages to $message (singular)
         $message = $messages[0];
 
         if (isset($message['from_me']) && $message['from_me'] === true) {
-            Log::info('2. Ignored: Message is from bot');
             return response()->json(['status' => 'ignored', 'reason' => 'Message is from bot']);
         }
 
@@ -30,35 +28,40 @@ class WhatsAppController extends Controller
         $userText = $message['text']['body'] ?? null;
 
         if (!$userText) {
-            Log::info('3. Ignored: Not a text message');
             return response()->json(['status' => 'ignored', 'reason' => 'Not a text message']);
         }
 
-        Log::info('4. Text extracted successfully: ' . $userText);
-
         $cleanNumber = explode('@', $senderId)[0];
 
-        $allowedNumbers = [
-            '94754126817',
-            '94783099340'
-        ];
+        // --- NEW: MEMORY STEP 1 ---
+        // Save the User's message to the database
+        WhatsappMessage::create([
+            'phone_number' => $cleanNumber,
+            'role' => 'user',
+            'content' => $userText
+        ]);
 
-        if (!in_array($cleanNumber, $allowedNumbers)) {
-            Log::warning('5. Unauthorized sender: ' . $cleanNumber);
-            return response()->json(['status' => 'ignored', 'reason' => 'Unauthorized sender']);
-        }
+        Log::info('2. Saved User Message & Sending to OpenAI...');
+        
+        // Pass the phone number to the OpenAI function so it can fetch the history
+        $aiResponseText = $this->getOpenAiResponse($cleanNumber);
 
-        Log::info('6. Sending to OpenAI...');
-        $aiResponseText = $this->getOpenAiResponse($userText);
+        Log::info('3. OpenAI replied: ' . $aiResponseText);
 
-        Log::info('7. OpenAI replied: ' . $aiResponseText);
+        // --- NEW: MEMORY STEP 2 ---
+        // Save the AI's response to the database
+        WhatsappMessage::create([
+            'phone_number' => $cleanNumber,
+            'role' => 'assistant',
+            'content' => $aiResponseText
+        ]);
 
         $this->sendWhatsAppMessage($senderId, $aiResponseText);
 
         return response()->json(['status' => 'success']);
     }
 
-    private function getOpenAiResponse($userText)
+    private function getOpenAiResponse($phoneNumber)
     {
         $systemPrompt = "You are Mann Mitra, a supportive, warm, and non-judgmental mental health companion and friend on WhatsApp. You exist EXCLUSIVELY to discuss emotions, mental health, and daily well-being.
         
@@ -72,16 +75,35 @@ class WhatsAppController extends Controller
         7. CRISIS PROTOCOL: If the user expresses intent for self-harm, provide emergency contacts immediately.
         8. NO JSON: Output ONLY the raw conversational text.";
 
+        // --- NEW: MEMORY STEP 3 ---
+        // Fetch the last 10 messages for this specific phone number to build context.
+        // We order by 'desc' to get the newest, take 10, then 'reverse' so they are in chronological order for OpenAI.
+        $chatHistory = WhatsappMessage::where('phone_number', $phoneNumber)
+            ->orderBy('created_at', 'desc')
+            ->take(10)
+            ->get()
+            ->reverse();
+
+        // Start the OpenAI messages array with the System Prompt
+        $openAiMessages = [
+            ['role' => 'system', 'content' => $systemPrompt]
+        ];
+
+        // Push the entire formatted chat history into the array
+        foreach ($chatHistory as $msg) {
+            $openAiMessages[] = [
+                'role' => $msg->role,
+                'content' => $msg->content
+            ];
+        }
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
                 'Content-Type' => 'application/json',
             ])->post('https://api.openai.com/v1/chat/completions', [
                 'model' => 'gpt-3.5-turbo',
-                'messages' => [
-                    ['role' => 'system', 'content' => $systemPrompt],
-                    ['role' => 'user', 'content' => $userText]
-                ],
+                'messages' => $openAiMessages // Send the whole history array!
             ]);
 
             return $response->json('choices.0.message.content') ?? 'Sorry, my brain is offline right now!';
@@ -96,7 +118,7 @@ class WhatsAppController extends Controller
         $whapiUrl = env('WHAPI_URL');
         $whapiToken = env('WHAPI_TOKEN');
 
-        Log::info("8. Sending back to Whapi... To: $to");
+        Log::info("4. Sending back to Whapi... To: $to");
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $whapiToken,
@@ -108,9 +130,9 @@ class WhatsAppController extends Controller
         ]);
 
         if ($response->successful()) {
-            Log::info('9. SUCCESS! Message sent to WhatsApp.');
+            Log::info('5. SUCCESS! Message sent to WhatsApp.');
         } else {
-            Log::error('9. WHAPI ERROR: ' . $response->body());
+            Log::error('5. WHAPI ERROR: ' . $response->body());
         }
     }
 }
