@@ -40,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AdminRepositoryInterface::class, AdminRepository::class);
         $this->app->bind(TicketRepositoryInterface::class, TicketRepository::class);
         $this->app->bind(SubscriptionRespositoryInterface::class, SubscriptionRepository::class);
+        $this->app->bind(\App\Interfaces\PaymentGatewayInterface::class, \App\Services\MockPaymentGateway::class);
     }
 
     /**

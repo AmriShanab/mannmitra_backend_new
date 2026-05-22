@@ -9,6 +9,17 @@ class Tickets extends Model
 {
     use HasFactory;
 
+    protected $fillable = [
+        'ticket_id',
+        'user_id',
+        'listener_id',
+        'subject',
+        'status',
+        'payment_verified',
+        'razorpay_order_id',    // Add this
+        'razorpay_payment_id'   // Add this
+    ];
+
     protected $guarded = [];
 
     public function user()
@@ -21,7 +32,8 @@ class Tickets extends Model
         return $this->belongsTo(User::class, 'listener_id');
     }
 
-    public function payment() {
+    public function payment()
+    {
         return $this->hasOne(Payments::class);
     }
 }

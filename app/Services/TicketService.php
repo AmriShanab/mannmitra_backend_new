@@ -4,9 +4,6 @@ namespace App\Services;
 
 use App\Interfaces\TicketRepositoryInterface;
 use App\Models\Payments;
-use App\Models\User;
-use App\Notifications\TicketUpdate;
-use App\Repositories\TicketRepository;
 use Exception;
 use Illuminate\Support\Str;
 
@@ -19,18 +16,21 @@ class TicketService
         $this->ticketRepo = $ticketRepo;
     }
 
-    public function initTicket($userId, $subject)
+    // 1. UPDATED: Accepts the Razorpay Order ID from the controller
+    public function initTicket($userId, $subject, $razorpayOrderId)
     {
         return $this->ticketRepo->createTicket([
             'ticket_id' => "TKT-" . strtoupper(Str::random(10)),
             'user_id' => $userId,
             'subject' => $subject,
-            'status' => 'open'
+            'status' => 'pending_payment', // UPDATED: Starts as pending, not open
+            'razorpay_order_id' => $razorpayOrderId // UPDATED: Saving the order ID
         ]);
     }
 
     public function processPayment($ticketId, $txnId, $amount)
     {
+        // 2. This repo method should ideally update the ticket status to 'open'
         $ticket = $this->ticketRepo->markAsPaid($ticketId);
 
         Payments::create([

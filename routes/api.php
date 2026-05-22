@@ -51,7 +51,7 @@ Route::prefix('v1')->group(function () {
 
         Route::post('journal/reflection', [JournalController::class, 'generateReflection']);
         Route::apiResource('journal', JournalController::class);
-        
+
         Route::controller(ChatController::class)->group(function () {
             Route::post('/chat', 'sendMessage');
             Route::get('/chat', 'history');
@@ -69,6 +69,12 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/subscription/purchase', [SubscriptionController::class, 'subscribe']);
         Route::get('/subscription/status', [SubscriptionController::class, 'status']);
+
+        // Version 2 of Listener Tickets - Admin Pool and Direct Assignment
+        // Route::post('/tickets/create', [TicketController::class, 'createTicket']);
+
+
+
 
         Route::prefix('appointments')->controller(AppointmentController::class)->group(function () {
             Route::post('/create', 'createAppointment');

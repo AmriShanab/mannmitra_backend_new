@@ -2,60 +2,66 @@
 
 namespace App\Http\Controllers;
 
+use App\Interfaces\PaymentGatewayInterface;
+use App\Models\ListenerTickets;
 use App\Services\TicketService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Razorpay\Api\Api;
 
 class TicketController extends Controller
 {
-    use ApiResponse; // <--- STEP 1: Enable the Trait inside the class
+    use ApiResponse;
 
     protected $ticketService;
+    protected $paymentGateway;
 
-    public function __construct(TicketService $ticketService)
+    public function __construct(TicketService $ticketService, PaymentGatewayInterface $paymentGateway)
     {
         $this->ticketService = $ticketService;
+        $this->paymentGateway = $paymentGateway;
     }
 
     public function create(Request $request)
     {
-        $request->validate([
-            'subject' => 'required|string'
-        ]);
-
+        $request->validate(['subject' => 'required|string']);
         $user = Auth::user();
 
-        if(!$user->is_paid){
-            return response()->json(['status' => false, 'message' => 'Payment required to create a ticket'], 402);
+        if ($this->ticketService->getUserActiveTicket($user->id)) {
+            return $this->errorResponse('You already have an active ticket', 400);
         }
 
-        $activeTicket = $this->ticketService->getUserActiveTicket($user->id);
-        if($activeTicket){
-            return response()->json(['status' => false, 'message' => 'You already have an active ticket'], 400);
-        }
+        // Use the interface method!
+        $order = $this->paymentGateway->createOrder(9900, 'INR');
 
-        $ticket = $this->ticketService->initTicket(Auth::id(), $request->subject);
-        
-        // STEP 2: Use $this->successResponse() instead of ApiResponse::success()
-        return $this->successResponse($ticket, 'Ticket created successfully');
+        $ticket = $this->ticketService->initTicket($user->id, $request->subject, $order['id']);
+
+        return $this->successResponse([
+            'ticket' => $ticket,
+            'payment_data' => $order
+        ], 'Ticket created successfully');
     }
 
     public function paymentSuccess(Request $request)
     {
         $request->validate([
             'ticket_id' => 'required',
-            'amount' => 'required',
-            'transaction_id' => 'required'
+            'payment_id' => 'required',
+            'signature' => 'required'
         ]);
 
-        $ticket = $this->ticketService->processPayment(
-            $request->ticket_id,
-            $request->transaction_id,
-            $request->amount
-        );
+        // Use the interface method!
+        $isValid = $this->paymentGateway->verifyPayment([
+            'payment_id' => $request->payment_id,
+            'signature' => $request->signature
+        ]);
 
-        return $this->successResponse($ticket, 'Payment processed and ticket updated');
+        if (!$isValid) return $this->errorResponse('Invalid payment', 400);
+
+        $ticket = $this->ticketService->processPayment($request->ticket_id, $request->payment_id, 99);
+        return $this->successResponse($ticket, 'Payment verified');
     }
 
     public function listOpen()
@@ -77,12 +83,9 @@ class TicketController extends Controller
     public function getTicketsByStatus($status)
     {
         try {
-            $userId = Auth::id(); // Get the currently logged-in user
-            
+            $userId = Auth::id();
             $tickets = $this->ticketService->getUserTicketsByStatus($userId, $status);
-            
             return $this->successResponse($tickets, "Tickets with status '$status' retrieved successfully");
-
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), $e->getCode() ?: 500);
         }
