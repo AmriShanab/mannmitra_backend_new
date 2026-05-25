@@ -15,6 +15,8 @@ class Appointment extends Model
         'status',
         'meeting_link',
         'notes',
+        'razorpay_order_id',
+        'razorpay_payment_id',
     ];
 
     public function user()

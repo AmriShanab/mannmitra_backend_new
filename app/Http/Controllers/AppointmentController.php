@@ -4,16 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Services\AppointmentService;
+use App\Interfaces\PaymentGatewayInterface; // <-- Import the interface
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class AppointmentController extends Controller
 {
     protected $appointementService;
+    protected $paymentGateway;
 
-    public function __construct(AppointmentService $appointementService)
+    public function __construct(AppointmentService $appointementService, PaymentGatewayInterface $paymentGateway)
     {
         $this->appointementService = $appointementService;
+        $this->paymentGateway = $paymentGateway;
     }
 
     public function createAppointment(Request $request)
@@ -21,21 +24,59 @@ class AppointmentController extends Controller
         $request->validate([
             'scheduled_at' => 'required|date|after:now',
             'notes' => 'nullable|string',
+            'mode' => 'nullable|string'
         ]);
 
         $user = Auth::user();
-        if (!$user->is_paid == true) {
-            return response()->json(['status' => false, 'message' => 'Payment required to create an appointment'], 402);
-        }
+        
+        $amountInPaise = 49900; 
 
         try {
-            $appointment = $this->appointementService->createRequest($user, $request->all());
-            return response()->json(['status' => true, 'data' => $appointment, 'message' => 'Appointment request created successfully'], 201);
+            $order = $this->paymentGateway->createOrder($amountInPaise, 'INR');
+
+            $appointment = $this->appointementService->createRequest($user, $request->all(), $order['id']);
+
+            return response()->json([
+                'status' => true, 
+                'message' => 'Appointment request created successfully',
+                'data' => [
+                    'appointment' => $appointment,
+                    'razorpay_checkout' => [
+                        'order_id' => $order['id'],
+                        'amount' => $amountInPaise,
+                        'currency' => 'INR',
+                        'key' => env('RAZORPAY_KEY')
+                    ]
+                ]
+            ], 201);
+            
         } catch (\Throwable $th) {
             return response()->json(['status' => false, 'message' => 'Failed to create appointment request: ' . $th->getMessage()], 500);
         }
     }
 
+    public function paymentSuccess(Request $request)
+    {
+        $request->validate([
+            'appointment_id' => 'required|string', 
+            'payment_id' => 'required',
+            'signature' => 'required'
+        ]);
+
+        $isValid = $this->paymentGateway->verifyPayment([
+            'payment_id' => $request->payment_id,
+            'signature' => $request->signature
+        ]);
+
+        if (!$isValid) {
+            return response()->json(['status' => false, 'message' => 'Invalid payment'], 400);
+        }
+
+        $appointment = $this->appointementService->processPayment($request->appointment_id, $request->payment_id);
+        
+        return response()->json(['status' => true, 'message' => 'Payment verified. Appointment is now waiting for a doctor.', 'data' => $appointment]);
+    }
+    
     private function getMaskedName($user)
     {
         return "Anonymous User #" . (1000 + $user->id);
@@ -158,6 +199,5 @@ class AppointmentController extends Controller
         }
 
         return response()->json(['status' => false, 'message' => 'Appointment Not Found'], 404);
-
     }
 }

@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 
 class AppointmentService
 {
-    public function createRequest($user, $data)
+    public function createRequest($user, $data, $razorpayOrderId)
     {
         $aptId = 'APT-' . strtoupper(Str::random(8));
         $meetingLink = 'MEET-' . strtoupper(Str::random(12));
@@ -21,9 +21,23 @@ class AppointmentService
             'mode' => $data['mode'] ?? 'video',
             'notes' => $data['notes'] ?? null,
             'meeting_link' => $meetingLink,
-            'status' => 'pending',
+            'status' => 'pending_payment', 
+            'razorpay_order_id' => $razorpayOrderId,
             'transaction_id' => $data['transaction_id'] ?? null,
         ]);
+    }
+
+    public function processPayment($appointmentId, $paymentId)
+    {
+        $appointment = Appointment::where('appointment_id', $appointmentId)->firstOrFail();
+        
+        $appointment->update([
+            'status' => 'pending', 
+            'razorpay_payment_id' => $paymentId,
+            'transaction_id' => $paymentId
+        ]);
+
+        return $appointment;
     }
 
     public function acceptRequest($appointmentId, $psychiatristId)
@@ -32,15 +46,6 @@ class AppointmentService
         if ($appointment->status != 'pending') {
             throw new \Exception('The Appointment is no longer available.', 400);
         }
-
-        // $hasConflict = Appointment::where('psychiatrist_id', $psychiatristId)
-        //     ->where('scheduled_at', $appointment->schedule_at)
-        //     ->where('status', 'confirmed')
-        //     ->get();
-
-        // if ($hasConflict) {
-        //     throw new Exception("You already have an appointment on this time slot");
-        // }
 
         $appointment->update([
             'psychiatrist_id' => $psychiatristId,

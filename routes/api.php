@@ -78,6 +78,7 @@ Route::prefix('v1')->group(function () {
 
         Route::prefix('appointments')->controller(AppointmentController::class)->group(function () {
             Route::post('/create', 'createAppointment');
+            Route::post('/pay-confirm', 'paymentSuccess');
             Route::get('/pending', 'listPendingAppointments');
             Route::get('/my-schedule', 'mySchedule');
             Route::post('/{id}/accept', 'accept');
