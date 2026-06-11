@@ -58,6 +58,7 @@ class TicketRepository implements TicketRepositoryInterface
     {
         $activeTicket = Tickets::where('user_id', $userId)
             ->whereIn('status', ['pending_payment', 'open', 'in_progress'])
+            ->whereDate('created_at', today())
             ->first();
 
         return $activeTicket;

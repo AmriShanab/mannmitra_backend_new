@@ -30,10 +30,9 @@ class TicketController extends Controller
         $user = Auth::user();
 
         if ($this->ticketService->getUserActiveTicket($user->id)) {
-            return $this->errorResponse('You already have an active ticket', 400);
+            return $this->errorResponse('You already have an active ticket !! Please Continue with the existing ticket', 400);
         }
 
-        // Use the interface method!
         $order = $this->paymentGateway->createOrder(9900, 'INR');
 
         $ticket = $this->ticketService->initTicket($user->id, $request->subject, $order['id']);

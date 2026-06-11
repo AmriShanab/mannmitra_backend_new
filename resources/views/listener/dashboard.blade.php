@@ -1,151 +1,199 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Listener Dashboard | MannMitra</title>
-    
-    {{-- 1. Modern Fonts & Icons --}}
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <title>Dashboard | MannMitra Listener</title>
+
+    {{-- Fonts --}}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    {{-- Icons --}}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    {{-- 2. Bootstrap 5 (Latest) --}}
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    {{-- 3. Custom CSS --}}
+
+    {{-- Custom CSS (no Bootstrap — custom only) --}}
     <link rel="stylesheet" href="{{ asset('css/listener_dashboard.css') }}">
 </head>
 <body>
 
-    {{-- NAVBAR --}}
-    <nav class="navbar navbar-custom sticky-top">
-        <div class="container-fluid d-flex justify-content-between align-items-center">
-            <a class="navbar-brand brand-text" href="#">
-                <i class="fas fa-hands-helping me-2"></i> MannMitra Listener
-            </a>
-            <div class="d-flex align-items-center gap-3">
-                <span class="text-muted d-none d-md-block">Welcome, {{ Auth::user()->name }}</span>
-                <form action="{{ route('admin.logout') }}" method="POST">
-                    @csrf
-                    <button class="btn btn-outline-secondary btn-sm rounded-pill px-3">Logout</button>
-                </form>
-            </div>
+    {{-- ── NAVBAR ──────────────────────────────────────────── --}}
+    <nav class="navbar-custom">
+        <a class="brand-text" href="#">
+            <i class="fas fa-hands-helping"></i>
+            MannMitra Listener
+        </a>
+
+        <div class="navbar-right">
+            <span class="online-dot" title="You are online"></span>
+            <span class="navbar-user">{{ Auth::user()->name }}</span>
+
+            {{-- Theme Toggle --}}
+            <button class="btn-theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle dark/light mode">
+                <i class="fas fa-moon" id="themeIcon"></i>
+            </button>
+
+            {{-- Logout --}}
+            <form action="{{ route('admin.logout') }}" method="POST" style="margin:0;">
+                @csrf
+                <button type="submit" class="btn-logout">Sign out</button>
+            </form>
         </div>
     </nav>
 
-    {{-- MAIN CONTENT --}}
-    <div class="container py-5">
-        
-        {{-- Header Section --}}
-        <div class="row mb-4">
-            <div class="col-12">
-                <h2 class="fw-bold text-dark">Dashboard</h2>
-                <p class="text-muted">Manage your sessions and accept new requests.</p>
+    {{-- ── MAIN ────────────────────────────────────────────── --}}
+    <div class="page-container">
+
+        {{-- Page header --}}
+        <div class="page-header">
+            <h1>Good {{ \Carbon\Carbon::now()->format('G') < 12 ? 'morning' : (\Carbon\Carbon::now()->format('G') < 17 ? 'afternoon' : 'evening') }}, {{ explode(' ', Auth::user()->name)[0] }}</h1>
+            <p>You are online.
+                @if($poolTickets->count() > 0)
+                    {{ $poolTickets->count() }} {{ Str::plural('person', $poolTickets->count()) }} waiting for support.
+                @else
+                    All caught up — no one waiting right now.
+                @endif
+            </p>
+        </div>
+
+        {{-- Stats row --}}
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-label">Waiting</div>
+                <div class="stat-value">{{ $poolTickets->count() }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Active sessions</div>
+                <div class="stat-value">{{ $myTickets->count() }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Closed today</div>
+                <div class="stat-value">{{ $closedTodayCount ?? 0 }}</div>
             </div>
         </div>
 
-        <div class="row g-4">
-            
-            {{-- LEFT COLUMN: NEW REQUESTS POOL --}}
-            <div class="col-lg-7 col-md-12">
-                <div class="custom-card">
-                    <div class="card-header-custom">
-                        <h5 class="card-title text-primary">
-                            <i class="fas fa-inbox"></i> Open Requests (Pool)
-                        </h5>
-                        <span class="badge bg-primary rounded-pill">{{ $poolTickets->count() }} New</span>
-                    </div>
-                    
-                    <div class="card-body p-0">
-                        @if($poolTickets->isEmpty())
-                            <div class="empty-state">
-                                <i class="fas fa-coffee empty-icon"></i>
-                                <h5>All quiet for now</h5>
-                                <p>Waiting for new users to request support...</p>
-                            </div>
-                        @else
-                            <div class="d-flex flex-column">
-                                @foreach($poolTickets as $ticket)
-                                <div class="request-item">
-                                    <div class="d-flex align-items-center">
-                                        <div class="user-avatar">
-                                            {{ substr($ticket->user->name ?? 'G', 0, 1) }}
-                                        </div>
-                                        <div>
-                                            <h6 class="mb-1 fw-bold text-dark">{{ $ticket->subject }}</h6>
-                                            <small class="text-muted">
-                                                <i class="far fa-user me-1"></i> {{ $ticket->user->name ?? 'Guest User' }}
-                                                <span class="mx-2">•</span>
-                                                <i class="far fa-clock me-1"></i> {{ $ticket->created_at->diffForHumans() }}
-                                            </small>
-                                        </div>
-                                    </div>
-                                    
-                                    <form action="{{ route('listener.ticket.accept', $ticket->id) }}" method="POST">
-                                        @csrf
-                                        <button type="submit" class="btn btn-accept shadow-sm">
-                                            Accept <i class="fas fa-arrow-right ms-2"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
+        {{-- Two column grid --}}
+        <div class="main-grid">
+
+            {{-- ── LEFT: Open Requests Pool ─────────────────── --}}
+            <div class="mm-card">
+                <div class="mm-card-header">
+                    <h2 class="mm-card-title">
+                        <i class="fas fa-inbox"></i>
+                        Open requests
+                    </h2>
+                    <span class="badge-blue">{{ $poolTickets->count() }} waiting</span>
                 </div>
+
+                @if($poolTickets->isEmpty())
+                    <div class="empty-state">
+                        <i class="fas fa-mug-hot"></i>
+                        <h5>All quiet</h5>
+                        <p>No one is waiting right now. Check back soon.</p>
+                    </div>
+                @else
+                    @foreach($poolTickets as $ticket)
+                    <div class="request-item">
+                        <div class="user-avatar">
+                            {{ strtoupper(substr($ticket->user->name ?? 'G', 0, 1)) }}
+                        </div>
+
+                        <div class="request-info">
+                            <h6>{{ $ticket->subject }}</h6>
+                            <div class="request-meta">
+                                <i class="far fa-user"></i>
+                                {{ $ticket->user->name ?? 'Guest User' }}
+                                <span class="meta-sep">·</span>
+                                <i class="far fa-clock"></i>
+                                {{ $ticket->created_at->diffForHumans() }}
+                            </div>
+                        </div>
+
+                        <form action="{{ route('listener.ticket.accept', $ticket->id) }}" method="POST" style="margin:0;">
+                            @csrf
+                            <button type="submit" class="btn-accept">
+                                Accept <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </form>
+                    </div>
+                    @endforeach
+                @endif
             </div>
 
-            {{-- RIGHT COLUMN: ACTIVE CHATS --}}
-            <div class="col-lg-5 col-md-12">
-                <div class="custom-card">
-                    <div class="card-header-custom">
-                        <h5 class="card-title text-success">
-                            <i class="fas fa-comments"></i> Active Sessions
-                        </h5>
-                    </div>
-                    
-                    <div class="card-body p-0">
-                        @if($myTickets->isEmpty())
-                            <div class="empty-state">
-                                <i class="far fa-comment-dots empty-icon"></i>
-                                <h5>No active chats</h5>
-                                <p>Accept a request from the pool to start chatting.</p>
-                            </div>
-                        @else
-                            <div class="list-group list-group-flush">
-                                @foreach($myTickets as $ticket)
-                                <div class="list-group-item p-4 border-0 border-bottom">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <div class="d-flex align-items-center">
-                                            <div class="user-avatar bg-success bg-opacity-10 text-success">
-                                                {{ substr($ticket->user->name ?? 'G', 0, 1) }}
-                                            </div>
-                                            <span class="fw-bold">{{ $ticket->user->name ?? 'Guest' }}</span>
-                                        </div>
-                                        <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">Live</span>
-                                    </div>
-                                    
-                                    <p class="text-muted small mb-3 ps-5">
-                                        "{{ Str::limit($ticket->subject, 50) }}"
-                                    </p>
-                                    
-                                    <div class="text-end">
-                                        <a href="{{ route('chat', $ticket->ticket_id) }}" class="btn btn-continue w-100">
-                                            Continue Chatting <i class="fas fa-comment-alt ms-2"></i>
-                                        </a>
-                                    </div>
-                                </div>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
+            {{-- ── RIGHT: Active Sessions ────────────────────── --}}
+            <div class="mm-card">
+                <div class="mm-card-header">
+                    <h2 class="mm-card-title">
+                        <i class="fas fa-comments"></i>
+                        Active sessions
+                    </h2>
+                    <span class="badge-green">{{ $myTickets->count() }} live</span>
                 </div>
+
+                @if($myTickets->isEmpty())
+                    <div class="empty-state">
+                        <i class="far fa-comment-dots"></i>
+                        <h5>No active chats</h5>
+                        <p>Accept a request from the pool to start a session.</p>
+                    </div>
+                @else
+                    @foreach($myTickets as $ticket)
+                    <div class="session-item">
+                        <div class="user-avatar green">
+                            {{ strtoupper(substr($ticket->user->name ?? 'G', 0, 1)) }}
+                        </div>
+
+                        <div class="session-info">
+                            <h6>{{ $ticket->user->name ?? 'Guest' }}</h6>
+                            <span class="session-preview">"{{ Str::limit($ticket->subject, 42) }}"</span>
+                        </div>
+
+                        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                            <span class="badge-live">Live</span>
+                            <a href="{{ route('chat', $ticket->ticket_id) }}" class="btn-continue">
+                                Open <i class="fas fa-arrow-right" style="font-size:11px;"></i>
+                            </a>
+                        </div>
+                    </div>
+                    @endforeach
+                @endif
             </div>
 
-        </div> {{-- End Row --}}
-    </div> {{-- End Container --}}
+        </div>{{-- end .main-grid --}}
 
-    {{-- Scripts --}}
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    </div>{{-- end .page-container --}}
+
+    {{-- ── THEME TOGGLE SCRIPT ──────────────────────────────── --}}
+    <script>
+        (function () {
+            const html     = document.documentElement;
+            const btn      = document.getElementById('themeToggle');
+            const icon     = document.getElementById('themeIcon');
+            const STORAGE  = 'mm_theme';
+
+            // Apply saved theme on load
+            const saved = localStorage.getItem(STORAGE) || 'light';
+            html.setAttribute('data-theme', saved);
+            updateIcon(saved);
+
+            btn.addEventListener('click', function () {
+                const current = html.getAttribute('data-theme');
+                const next    = current === 'dark' ? 'light' : 'dark';
+                html.setAttribute('data-theme', next);
+                localStorage.setItem(STORAGE, next);
+                updateIcon(next);
+            });
+
+            function updateIcon(theme) {
+                if (theme === 'dark') {
+                    icon.className = 'fas fa-sun';
+                    btn.title = 'Switch to light mode';
+                } else {
+                    icon.className = 'fas fa-moon';
+                    btn.title = 'Switch to dark mode';
+                }
+            }
+        })();
+    </script>
+
 </body>
 </html>
