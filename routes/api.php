@@ -1,5 +1,5 @@
 <?php
-
+//
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AiCompanionController;
