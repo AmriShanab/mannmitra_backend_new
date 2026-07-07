@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\WhatsappMessage; // Make sure to import the new model!
+use App\Models\WhatsappMessage;
 
 class WhatsAppController extends Controller
 {
@@ -25,16 +25,28 @@ class WhatsAppController extends Controller
         }
 
         $senderId = $message['chat_id'] ?? $message['from'] ?? null;
-        $userText = $message['text']['body'] ?? null;
+
+        $type = $message['type'] ?? 'text';
+        $userText = null;
+        $isVoice = false;
+
+        if ($type === 'text') {
+            $userText = $message['text']['body'] ?? null;
+        } elseif ($type === 'audio' || $type === 'voice') {
+            $isVoice = true;
+            $audioObj = $message['audio'] ?? $message['voice'] ?? null;
+            if ($audioObj) {
+                Log::info("Audio object found, downloading and transcribing...");
+                $userText = $this->transcribeAudio($audioObj);
+            }
+        }
 
         if (!$userText) {
-            return response()->json(['status' => 'ignored', 'reason' => 'Not a text message']);
+            return response()->json(['status' => 'ignored', 'reason' => 'Not a text or recognized audio message']);
         }
 
         $cleanNumber = explode('@', $senderId)[0];
 
-        // --- NEW: MEMORY STEP 1 ---
-        // Save the User's message to the database
         WhatsappMessage::create([
             'phone_number' => $cleanNumber,
             'role' => 'user',
@@ -42,23 +54,102 @@ class WhatsAppController extends Controller
         ]);
 
         Log::info('2. Saved User Message & Sending to OpenAI...');
-        
-        // Pass the phone number to the OpenAI function so it can fetch the history
+
         $aiResponseText = $this->getOpenAiResponse($cleanNumber);
 
         Log::info('3. OpenAI replied: ' . $aiResponseText);
 
-        // --- NEW: MEMORY STEP 2 ---
-        // Save the AI's response to the database
         WhatsappMessage::create([
             'phone_number' => $cleanNumber,
             'role' => 'assistant',
             'content' => $aiResponseText
         ]);
 
-        $this->sendWhatsAppMessage($senderId, $aiResponseText);
+        if ($isVoice) {
+            $audioContent = $this->generateVoice($aiResponseText);
+            if ($audioContent) {
+                $this->sendWhatsAppVoiceMessage($senderId, $audioContent);
+            } else {
+                $this->sendWhatsAppMessage($senderId, $aiResponseText);
+            }
+        } else {
+            $this->sendWhatsAppMessage($senderId, $aiResponseText);
+        }
 
         return response()->json(['status' => 'success']);
+    }
+
+    private function transcribeAudio($audioObj)
+    {
+        $fileContent = null;
+
+        if (isset($audioObj['link'])) {
+            $response = Http::get($audioObj['link']);
+            if ($response->successful()) {
+                $fileContent = $response->body();
+            }
+        } elseif (isset($audioObj['id'])) {
+            $whapiUrl = env('WHAPI_URL');
+            $whapiToken = env('WHAPI_TOKEN');
+            $baseUrl = preg_replace('#/v\d+/?$#', '', $whapiUrl);
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $whapiToken,
+            ])->get("{$baseUrl}/media/{$audioObj['id']}");
+
+            if ($response->successful()) {
+                $fileContent = $response->body();
+            }
+        }
+
+        if (!$fileContent) {
+            Log::error('Could not download audio from Whapi.');
+            return null;
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('OPENAI_API_KEY')
+            ])
+                ->attach('file', $fileContent, 'audio.ogg')
+                ->post('https://api.openai.com/v1/audio/transcriptions', [
+                    'model' => 'whisper-1'
+                ]);
+
+            if ($response->successful()) {
+                return $response->json('text');
+            }
+
+            Log::error('Whisper Transcription Error: ' . $response->body());
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Whisper Exception: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function generateVoice($text)
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+                'Content-Type' => 'application/json',
+            ])->timeout(30)->post('https://api.openai.com/v1/audio/speech', [
+                'model' => 'tts-1',
+                'input' => $text,
+                'voice' => 'alloy',
+                'response_format' => 'mp3',
+            ]);
+
+            if ($response->successful()) {
+                return $response->body();
+            }
+            Log::error('TTS Error: ' . $response->body());
+            return null;
+        } catch (\Exception $e) {
+            Log::error('TTS Exception: ' . $e->getMessage());
+            return null;
+        }
     }
 
     private function getOpenAiResponse($phoneNumber)
@@ -75,21 +166,17 @@ class WhatsAppController extends Controller
         7. CRISIS PROTOCOL: If the user expresses intent for self-harm, provide emergency contacts immediately.
         8. NO JSON: Output ONLY the raw conversational text.";
 
-        // --- NEW: MEMORY STEP 3 ---
-        // Fetch the last 10 messages for this specific phone number to build context.
-        // We order by 'desc' to get the newest, take 10, then 'reverse' so they are in chronological order for OpenAI.
         $chatHistory = WhatsappMessage::where('phone_number', $phoneNumber)
             ->orderBy('created_at', 'desc')
             ->take(10)
             ->get()
             ->reverse();
 
-        // Start the OpenAI messages array with the System Prompt
         $openAiMessages = [
             ['role' => 'system', 'content' => $systemPrompt]
         ];
 
-        // Push the entire formatted chat history into the array
+
         foreach ($chatHistory as $msg) {
             $openAiMessages[] = [
                 'role' => $msg->role,
@@ -103,7 +190,7 @@ class WhatsAppController extends Controller
                 'Content-Type' => 'application/json',
             ])->post('https://api.openai.com/v1/chat/completions', [
                 'model' => 'gpt-3.5-turbo',
-                'messages' => $openAiMessages // Send the whole history array!
+                'messages' => $openAiMessages
             ]);
 
             return $response->json('choices.0.message.content') ?? 'Sorry, my brain is offline right now!';
@@ -133,6 +220,32 @@ class WhatsAppController extends Controller
             Log::info('5. SUCCESS! Message sent to WhatsApp.');
         } else {
             Log::error('5. WHAPI ERROR: ' . $response->body());
+        }
+    }
+
+    private function sendWhatsAppVoiceMessage($to, $audioContent)
+    {
+        $whapiUrl = env('WHAPI_URL');
+        $whapiToken = env('WHAPI_TOKEN');
+
+        Log::info("4. Sending voice back to Whapi... To: $to");
+
+        $base64 = base64_encode($audioContent);
+        $media = 'data:audio/mp3;base64,' . $base64;
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $whapiToken,
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ])->post("{$whapiUrl}/messages/audio", [
+            'to' => $to,
+            'media' => $media,
+        ]);
+
+        if ($response->successful()) {
+            Log::info('5. SUCCESS! Voice Message sent to WhatsApp.');
+        } else {
+            Log::error('5. WHAPI ERROR (Voice): ' . $response->body());
         }
     }
 }
