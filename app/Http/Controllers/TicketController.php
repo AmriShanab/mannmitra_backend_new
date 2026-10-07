@@ -9,7 +9,7 @@ use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Razorpay\Api\Api;
+use App\Models\Tickets;
 
 class TicketController extends Controller
 {
@@ -33,7 +33,17 @@ class TicketController extends Controller
             return $this->errorResponse('You already have an active ticket !! Please Continue with the existing ticket', 400);
         }
 
-        $order = $this->paymentGateway->createOrder(9900, 'INR');
+        $amount = (int) config('services.pricing.ticket');
+
+        try {
+            $order = $this->paymentGateway->createOrder($amount * 100, 'INR', [
+                'type' => 'ticket',
+                'user_id' => (string) $user->id,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Razorpay order creation failed (ticket): ' . $e->getMessage());
+            return $this->errorResponse('Unable to start payment. Please try again.', 502);
+        }
 
         $ticket = $this->ticketService->initTicket($user->id, $request->subject, $order['id']);
 
@@ -51,15 +61,27 @@ class TicketController extends Controller
             'signature' => 'required'
         ]);
 
-        // Use the interface method!
+        $ticket = Tickets::where('ticket_id', $request->ticket_id)
+            ->where('user_id', Auth::id())
+            ->first();
+
+        if (!$ticket || !$ticket->razorpay_order_id) {
+            return $this->errorResponse('Ticket not found', 404);
+        }
+
+        if ($ticket->payment_verified) {
+            return $this->successResponse($ticket, 'Payment already verified');
+        }
+
         $isValid = $this->paymentGateway->verifyPayment([
+            'order_id' => $ticket->razorpay_order_id,
             'payment_id' => $request->payment_id,
             'signature' => $request->signature
         ]);
 
         if (!$isValid) return $this->errorResponse('Invalid payment', 400);
 
-        $ticket = $this->ticketService->processPayment($request->ticket_id, $request->payment_id, 99);
+        $ticket = $this->ticketService->processPayment($request->ticket_id, $request->payment_id, config('services.pricing.ticket'));
         return $this->successResponse($ticket, 'Payment verified');
     }
 

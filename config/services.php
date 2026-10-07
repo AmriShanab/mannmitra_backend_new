@@ -35,4 +35,20 @@ return [
         ],
     ],
 
+    'razorpay' => [
+        'key' => env('RAZORPAY_API_KEY'),
+        'secret' => env('RAZORPAY_API_SECRET'),
+        'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
+    ],
+
+    // Prices in INR. Server-side source of truth; never trust client amounts.
+    'pricing' => [
+        'ticket' => 99,
+        'appointment' => 499,
+        'plans' => [
+            'monthly' => ['amount' => 99, 'period' => 'month'],
+            'yearly' => ['amount' => 799, 'period' => 'year'],
+        ],
+    ],
+
 ];

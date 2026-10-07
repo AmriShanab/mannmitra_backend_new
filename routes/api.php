@@ -28,6 +28,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/sessions/start', [AuthController::class, 'guestLogin']);
     Route::post('/auth/login', [AuthController::class, 'apiLogin']);
     Route::post('/whatsapp/webhook', [WhatsAppController::class, 'handleWebhook']);
+    Route::post('/webhooks/razorpay', [SubscriptionController::class, 'webhook']);
 
     Route::middleware(['auth:sanctum'])->group(function () {
 
@@ -67,6 +68,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/tickets/pool', [TicketController::class, 'listOpen']);
         Route::post('/tickets/{id}/accept', [TicketController::class, 'accept']);
 
+        Route::get('/subscription/plans', [SubscriptionController::class, 'plans']);
+        Route::post('/subscription/create-order', [SubscriptionController::class, 'createOrder']);
         Route::post('/subscription/purchase', [SubscriptionController::class, 'subscribe']);
         Route::get('/subscription/status', [SubscriptionController::class, 'status']);
 

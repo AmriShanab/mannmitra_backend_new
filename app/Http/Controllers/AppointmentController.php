@@ -29,10 +29,13 @@ class AppointmentController extends Controller
 
         $user = Auth::user();
         
-        $amountInPaise = 49900; 
+        $amountInPaise = (int) config('services.pricing.appointment') * 100;
 
         try {
-            $order = $this->paymentGateway->createOrder($amountInPaise, 'INR');
+            $order = $this->paymentGateway->createOrder($amountInPaise, 'INR', [
+                'type' => 'appointment',
+                'user_id' => (string) $user->id,
+            ]);
 
             $appointment = $this->appointementService->createRequest($user, $request->all(), $order['id']);
 
@@ -45,7 +48,7 @@ class AppointmentController extends Controller
                         'order_id' => $order['id'],
                         'amount' => $amountInPaise,
                         'currency' => 'INR',
-                        'key' => env('RAZORPAY_KEY')
+                        'key' => config('services.razorpay.key')
                     ]
                 ]
             ], 201);
@@ -63,7 +66,16 @@ class AppointmentController extends Controller
             'signature' => 'required'
         ]);
 
+        $existing = Appointment::where('appointment_id', $request->appointment_id)
+            ->where('user_id', Auth::id())
+            ->first();
+
+        if (!$existing || !$existing->razorpay_order_id) {
+            return response()->json(['status' => false, 'message' => 'Appointment not found'], 404);
+        }
+
         $isValid = $this->paymentGateway->verifyPayment([
+            'order_id' => $existing->razorpay_order_id,
             'payment_id' => $request->payment_id,
             'signature' => $request->signature
         ]);

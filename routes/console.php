@@ -16,3 +16,7 @@ Schedule::command('companion:generate-daily-journals')->dailyAt('18:00');
 Schedule::command('app:send-crisis-follow-up-reminders')->dailyAt('13:00');
 
 Schedule::command('app:send-reengagement-reminders')->dailyAt('17:00');
+
+Schedule::call(fn () => app(\App\Services\SubscriptionService::class)->expireLapsed())
+    ->hourly()
+    ->name('subscriptions-expire-lapsed');
