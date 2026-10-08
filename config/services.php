@@ -51,4 +51,18 @@ return [
         ],
     ],
 
+    // Chat/call signaling server. REALTIME_SECRET must match the socket server's env.
+    'realtime' => [
+        'url' => env('REALTIME_SOCKET_URL', 'http://31.97.232.145:3000'),
+        'secret' => env('REALTIME_SECRET'),
+    ],
+
+    // TURN relay. With TURN_SECRET (coturn use-auth-secret) credentials are time-limited.
+    'turn' => [
+        'urls' => env('TURN_URLS', 'turn:31.97.232.145:3478'),
+        'secret' => env('TURN_SECRET'),
+        'username' => env('TURN_USERNAME'),
+        'password' => env('TURN_PASSWORD'),
+    ],
+
 ];

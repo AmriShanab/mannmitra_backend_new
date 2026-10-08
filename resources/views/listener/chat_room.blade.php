@@ -130,9 +130,11 @@
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
 // ── Config ──────────────────────────────────────────────────
-const TICKET_ID   = "{{ $ticket->ticket_id }}";
-const USER_NAME   = "{{ Auth::user()->name }}";
-const USER_ID     = "{{ Auth::id() }}";
+const TICKET_ID   = @json($ticket->ticket_id);
+const USER_NAME   = @json(Auth::user()->name);
+const USER_ID     = @json((string) Auth::id());
+const SOCKET_URL  = @json($rt['socket_url']);
+const SOCKET_TOKEN = @json($rt['token']);
 const CSRF_TOKEN  = "{{ csrf_token() }}";
 
 // ── DOM Refs ─────────────────────────────────────────────────
@@ -146,8 +148,12 @@ const aiList       = document.getElementById('ai-suggestions-list');
 const toast        = document.getElementById('toast');
 
 // ── Socket Setup ─────────────────────────────────────────────
-const socket = io("http://31.97.232.145:3000");
-socket.emit('join_room', TICKET_ID);
+const socket = io(SOCKET_URL, { auth: { token: SOCKET_TOKEN } });
+// (Re)join on every connect so a dropped connection recovers by itself.
+socket.on('connect', () => socket.emit('join_room', TICKET_ID));
+socket.on('connect_error', (err) => {
+    if (err.message === 'unauthorized') showToast("Session expired. Please reload this page.");
+});
 
 // Incoming messages from user (real-time)
 socket.on('receive_message', (data) => {
@@ -221,18 +227,9 @@ async function sendMessage() {
     messageInput.value = '';
     setHint("Suggestions update after each message", false);
 
-    // 2. Socket emit
-    socket.emit('send_message', {
-        room: TICKET_ID,
-        message: text,
-        sender: USER_NAME,
-        sender_id: USER_ID,
-        timestamp: timestamp
-    });
-
-    // 3. Persist to DB
+    // 2. Persist first; only broadcast once the server accepted the message.
     try {
-        await fetch('/api/v1/listener/messages', {
+        const res = await fetch('/api/v1/listener/messages', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -241,14 +238,20 @@ async function sendMessage() {
                 'X-CSRF-TOKEN': CSRF_TOKEN
             },
             credentials: 'include',
-            body: JSON.stringify({
-                ticket_id: TICKET_ID,
-                message: text,
-                sender_id: USER_ID
-            })
+            body: JSON.stringify({ ticket_id: TICKET_ID, message: text })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        socket.emit('send_message', {
+            room: TICKET_ID,
+            message: text,
+            sender: USER_NAME,
+            sender_id: USER_ID,
+            timestamp: timestamp
         });
     } catch (err) {
-        console.error("Save message error:", err);
+        console.error("Send message error:", err);
+        showToast("Message could not be sent. Please try again.");
     }
 }
 
@@ -271,6 +274,7 @@ endBtn.addEventListener('click', async () => {
         const result = await res.json();
 
         if (result.status) {
+            socket.emit('end_session', { room: TICKET_ID });
             showToast("Session ended.");
             setTimeout(() => {
                 window.location.href = "{{ route('listener.dashboard') }}";

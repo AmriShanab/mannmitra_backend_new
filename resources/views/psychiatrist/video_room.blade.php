@@ -241,25 +241,22 @@
 
     <script>
         // --- CONFIGURATION ---
-        const ROOM_ID = "{{ $appointment->meeting_link }}";
-        const SIGNALING_URL = "http://31.97.232.145:3000";
+        const ROOM_ID = @json($appointment->meeting_link);
+        const SIGNALING_URL = @json($rt['socket_url']);
+        const SOCKET_TOKEN = @json($rt['token']);
         const API_CLOSE_URL = "/api/v1/appointments/close";
         
-        const rtcConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { 
-                    urls: 'turn:31.97.232.145:3478', 
-                    username: 'mannmitra', 
-                    credential: 'secure_video_password123' 
-                }
-            ]
-        };
+        // ICE servers (incl. time-limited TURN login) are issued by the server per session.
+        const rtcConfig = { iceServers: @json($rt['ice_servers']) };
 
         let pc;
         let localStream;
         let candidateQueue = [];
-        const socket = io(SIGNALING_URL, { transports: ['websocket'] });
+        const socket = io(SIGNALING_URL, { transports: ['websocket'], auth: { token: SOCKET_TOKEN } });
+        socket.on('connect_error', (err) => {
+            console.error('Signaling connection failed:', err.message);
+            if (err.message === 'unauthorized') alert('Session expired. Please reopen this page.');
+        });
 
         const remoteVideo = document.getElementById('remoteVideo');
         const waitingOverlay = document.getElementById('waitingOverlay');
@@ -295,14 +292,14 @@
         }
 
         socket.on('peer_joined', async () => {
-            console.log("Peer Joined. Waiting 1s...");
+            console.log("Peer Joined.");
             setTimeout(async () => {
                 try {
                     const offer = await pc.createOffer();
                     await pc.setLocalDescription(offer);
                     socket.emit('offer', { room: ROOM_ID, sdp: offer });
                 } catch (e) { console.error(e); }
-            }, 1000);
+            }, 300);
         });
 
         socket.on('receive_offer', async (sdp) => {

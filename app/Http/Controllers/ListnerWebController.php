@@ -43,6 +43,9 @@ class ListnerWebController extends Controller
             abort(403, "You are not assigned to this ticket.");
         }
 
-        return view('listener.chat_room', compact('ticket'));
+        $realtime = app(\App\Services\RealtimeService::class);
+        $rt = $realtime->session(Auth::user(), \App\Services\RealtimeService::KIND_CHAT, $ticket->ticket_id, 'listener');
+
+        return view('listener.chat_room', compact('ticket', 'rt'));
     }
 }

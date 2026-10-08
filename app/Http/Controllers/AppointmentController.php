@@ -204,6 +204,11 @@ class AppointmentController extends Controller
         $appointment = Appointment::where('meeting_link', $request->meeting_link)->first();
 
         if($appointment){
+            $uid = Auth::id();
+            if ($appointment->user_id !== $uid && $appointment->psychiatrist_id !== $uid) {
+                return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
+            }
+
             $appointment->status = 'completed';
             $appointment->save();
 

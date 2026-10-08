@@ -10,6 +10,7 @@ use App\Http\Controllers\JournalController;
 use App\Http\Controllers\ListenerChatController;
 use App\Http\Controllers\MoodController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\RealtimeController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UserController;
@@ -58,6 +59,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/chat', 'history');
         });
 
+        Route::post('/realtime/session', [RealtimeController::class, 'session']);
         Route::post('/listener/messages', [ListenerChatController::class, 'saveMessage']);
         Route::get('/listener/history/{ticket_id}', [ListenerChatController::class, 'getHistory']);
         Route::post('/listener/end-session', [ListenerChatController::class, 'endSession']);
