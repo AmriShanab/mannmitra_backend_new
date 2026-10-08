@@ -240,6 +240,39 @@
             display: none !important;
         }
 
+
+        /* Notification bell */
+        .notif-wrap { position: relative; }
+        .notif-btn {
+            width: 48px; height: 48px; border-radius: 50%; border: 1px solid #e5e7eb;
+            background: #fff; color: #334155; font-size: 18px; position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,.05); cursor: pointer;
+        }
+        .notif-btn:hover { background: #f8fafc; }
+        .notif-badge {
+            position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px;
+            padding: 0 5px; border-radius: 10px; background: #ef4444; color: #fff;
+            font-size: 11px; font-weight: 700; display: none; align-items: center; justify-content: center;
+        }
+        .notif-panel {
+            position: absolute; right: 0; top: 58px; width: 360px; max-width: 92vw; max-height: 440px;
+            overflow-y: auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
+            box-shadow: 0 12px 32px rgba(0,0,0,.14); display: none; z-index: 1050;
+        }
+        .notif-panel.open { display: block; }
+        .notif-head {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 16px; border-bottom: 1px solid #f1f5f9; font-weight: 700;
+        }
+        .notif-head button { border: 0; background: none; color: #0d9488; font-size: 12px; font-weight: 600; }
+        .notif-item { padding: 12px 16px; border-bottom: 1px solid #f8fafc; cursor: pointer; }
+        .notif-item:hover { background: #f8fafc; }
+        .notif-item.unread { background: #f0fdfa; }
+        .notif-item .t { font-weight: 600; font-size: 14px; }
+        .notif-item .b { font-size: 13px; color: #475569; margin-top: 2px; }
+        .notif-item .w { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+        .notif-empty { padding: 28px 16px; text-align: center; color: #94a3b8; font-size: 14px; }
+
         /* Logout Button */
         .btn-logout {
             margin-top: auto;
@@ -286,6 +319,19 @@
                 <p class="text-muted mb-0" id="page-subtitle">Here is your daily overview.</p>
             </div>
             <div class="d-flex align-items-center gap-3">
+                <div class="notif-wrap">
+                    <button type="button" class="notif-btn" id="notifBtn" aria-label="Notifications">
+                        <i class="fas fa-bell"></i>
+                        <span class="notif-badge" id="notifBadge">0</span>
+                    </button>
+                    <div class="notif-panel" id="notifPanel">
+                        <div class="notif-head">
+                            <span>Notifications</span>
+                            <button type="button" id="notifReadAll">Mark all read</button>
+                        </div>
+                        <div id="notifList"><div class="notif-empty">Loading…</div></div>
+                    </div>
+                </div>
                 <div class="bg-white p-2 rounded-circle shadow-sm border">
                     <img src="https://ui-avatars.com/api/?name={{ $user->name }}&background=0D9488&color=fff&font-size=0.5"
                         class="rounded-circle" width="48">
@@ -567,6 +613,79 @@
                 alert("Network Error");
             }
         }
+    </script>
+
+    <script>
+        // ---- Notification bell (appointment reminders etc.) ----
+        (function () {
+            const API = '/api/v1';
+            const H = {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            };
+            const btn = document.getElementById('notifBtn');
+            const panel = document.getElementById('notifPanel');
+            const badge = document.getElementById('notifBadge');
+            const list = document.getElementById('notifList');
+            let items = [];
+
+            const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+            function ago(iso) {
+                const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+                if (mins < 1) return 'Just now';
+                if (mins < 60) return mins + ' min ago';
+                const h = Math.round(mins / 60);
+                if (h < 24) return h + ' hr ago';
+                return Math.round(h / 24) + ' day(s) ago';
+            }
+
+            function render() {
+                const unread = items.filter((n) => !n.isRead).length;
+                badge.style.display = unread ? 'flex' : 'none';
+                badge.textContent = unread > 99 ? '99+' : unread;
+
+                if (!items.length) {
+                    list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+                    return;
+                }
+                list.innerHTML = items.map((n) => `
+                    <div class="notif-item ${n.isRead ? '' : 'unread'}" data-id="${esc(n.id)}">
+                        <div class="t">${esc(n.title)}</div>
+                        <div class="b">${esc(n.body)}</div>
+                        <div class="w">${esc(ago(n.timestamp))}</div>
+                    </div>`).join('');
+            }
+
+            async function load() {
+                try {
+                    const res = await fetch(`${API}/notifications?limit=30`, { headers: H, credentials: 'same-origin' });
+                    if (!res.ok) return;
+                    const json = await res.json();
+                    if (json.success) { items = json.data; render(); }
+                } catch (e) { /* offline: keep what we have */ }
+            }
+
+            async function markRead(id) {
+                const n = items.find((x) => x.id === id);
+                if (!n || n.isRead) return;
+                n.isRead = true; render();
+                try { await fetch(`${API}/notifications/${encodeURIComponent(id)}/read`, { method: 'POST', headers: H, credentials: 'same-origin' }); } catch (e) {}
+            }
+
+            btn.addEventListener('click', (e) => { e.stopPropagation(); panel.classList.toggle('open'); if (panel.classList.contains('open')) load(); });
+            document.addEventListener('click', (e) => { if (!panel.contains(e.target)) panel.classList.remove('open'); });
+            list.addEventListener('click', (e) => { const el = e.target.closest('.notif-item'); if (el) markRead(el.dataset.id); });
+            document.getElementById('notifReadAll').addEventListener('click', async () => {
+                items.forEach((n) => (n.isRead = true)); render();
+                try { await fetch(`${API}/notifications/read-all`, { method: 'POST', headers: H, credentials: 'same-origin' }); } catch (e) {}
+            });
+
+            load();
+            setInterval(load, 60000); // pick up new reminders without a page refresh
+        })();
     </script>
 </body>
 

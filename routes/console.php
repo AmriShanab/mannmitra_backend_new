@@ -20,3 +20,6 @@ Schedule::command('app:send-reengagement-reminders')->dailyAt('17:00');
 Schedule::call(fn () => app(\App\Services\SubscriptionService::class)->expireLapsed())
     ->hourly()
     ->name('subscriptions-expire-lapsed');
+
+// Every minute: remind patients (push) and doctors (dashboard) ~30 min before a confirmed session.
+Schedule::command('app:send-appointment-reminders')->everyMinute()->withoutOverlapping();

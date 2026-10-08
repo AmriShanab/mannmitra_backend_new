@@ -13,7 +13,11 @@ class NotificationController extends Controller
     {
         $user = Auth::user();
 
-        $notifications = $user->notifications;
+        $query = $user->notifications();
+        if ($request->filled('limit')) {
+            $query->limit(min((int) $request->limit, 100));
+        }
+        $notifications = $query->get();
 
         $formattedNotifications = $notifications->map(function ($notification) {
             $data = $notification->data;
@@ -34,5 +38,25 @@ class NotificationController extends Controller
             'success' => true,
             'data' => $formattedNotifications
         ]);
+    }
+
+    public function markRead($id)
+    {
+        $notification = Auth::user()->notifications()->where('id', $id)->first();
+
+        if (!$notification) {
+            return response()->json(['success' => false, 'message' => 'Notification not found'], 404);
+        }
+
+        $notification->markAsRead();
+
+        return response()->json(['success' => true]);
+    }
+
+    public function markAllRead()
+    {
+        Auth::user()->unreadNotifications->markAsRead();
+
+        return response()->json(['success' => true]);
     }
 }
