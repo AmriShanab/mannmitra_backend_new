@@ -54,6 +54,7 @@ class AppointmentController extends Controller
             ], 201);
             
         } catch (\Throwable $th) {
+            \Illuminate\Support\Facades\Log::error('Appointment create failed: ' . $th->getMessage());
             return response()->json(['status' => false, 'message' => 'Failed to create appointment request: ' . $th->getMessage()], 500);
         }
     }
@@ -170,7 +171,9 @@ class AppointmentController extends Controller
         try {
             $userId = Auth::id();
 
+            // Unpaid (abandoned checkout) bookings are not shown to the patient.
             $appointments = Appointment::where('user_id', $userId)
+                ->where('status', '!=', 'pending_payment')
                 ->with(['psychiatrist:id,name'])
                 ->orderBy('scheduled_at', 'desc')
                 ->get();

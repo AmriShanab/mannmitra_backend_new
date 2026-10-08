@@ -33,6 +33,11 @@ class ClosedExpiredAppointments extends Command
                                     ->whereIn('status', ['pending', 'confirmed'])
                                     ->update(['status' => 'closed']);
 
-        $this->info("Successfully expired {$appointments} old Appointments");
+        // Bookings whose payment was never completed (abandoned checkout) free themselves up.
+        $abandoned = Appointment::where('status', 'pending_payment')
+                                    ->where('created_at', '<', now()->subHours(2))
+                                    ->update(['status' => 'cancelled']);
+
+        $this->info("Successfully expired {$appointments} old Appointments, cancelled {$abandoned} unpaid bookings");
     }
 }
