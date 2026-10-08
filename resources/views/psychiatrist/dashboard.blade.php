@@ -536,7 +536,7 @@
                                         ${new Date(apt.scheduled_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
                                     </span>
                                 </div>
-                                <a href="/api/v1/appointments/${apt.appointment_id}/join" target="_blank" class="btn-join">Join</a>
+                                <a href="/meet/${apt.appointment_id}" class="btn-join">Join</a>
                             </div>
                         `).join('');
                     } else {
