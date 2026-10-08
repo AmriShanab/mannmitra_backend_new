@@ -43,8 +43,8 @@ return [
 
     // Prices in INR. Server-side source of truth; never trust client amounts.
     'pricing' => [
-        'ticket' => 99,
-        'appointment' => 499,
+        'ticket' => (int) env('TICKET_PRICE', 99),
+        'appointment' => (int) env('APPOINTMENT_PRICE', 499),
         'plans' => [
             'monthly' => ['amount' => 99, 'period' => 'month'],
             'yearly' => ['amount' => 799, 'period' => 'year'],
