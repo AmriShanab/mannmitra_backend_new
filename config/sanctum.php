@@ -17,7 +17,7 @@ return [
 
     'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
         '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1,31.97.232.145', // Add your server IP here
+        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1,31.97.232.145,mann-mitra.co.in,www.mann-mitra.co.in', // Hosts whose browser pages may use cookie auth for /api
         Sanctum::currentApplicationUrlWithPort(),
     ))),
 

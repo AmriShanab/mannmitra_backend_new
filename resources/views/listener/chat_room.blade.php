@@ -327,6 +327,8 @@ function escapeHtml(str) {
 let aiDebounceTimer = null;
 
 function fetchAiSuggestions(lastUserMessage) {
+    // The suggestions sidebar is currently commented out of the page; nothing to update.
+    if (!aiLoading || !aiList) return;
     clearTimeout(aiDebounceTimer);
 
     // Show loading state
