@@ -28,10 +28,6 @@ class RealtimeController extends Controller
         ]);
 
         $user = Auth::user();
-        return response()->json([
-        'auth_user_id' => $user ? $user->id : null,
-        'auth_user'    => $user,
-    ]);
         $role = $this->realtime->participantRole($user, $data['kind'], $data['room']);
 
         if (!$role) {
