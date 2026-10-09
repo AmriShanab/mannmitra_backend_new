@@ -3,12 +3,16 @@
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ListnerWebController;
+use App\Http\Controllers\PrivacyPolicyController;
 use App\Http\Controllers\PsychiatristController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect('/admin/login');
 });
+
+Route::get('/privacy-policy', [PrivacyPolicyController::class, 'index'])->name('privacy.policy');
+Route::get('/terms-and-conditions', [PrivacyPolicyController::class, 'termsAndConditions'])->name('terms.and.conditions');
 
 
 Route::get('/test-admin', function () {
