@@ -134,7 +134,7 @@
         <li>nominate someone to exercise rights on your behalf</li>
         <li>raise a grievance</li>
     </ul>
-    <p>To exercise these rights, email <mark class="ph">[EMAIL]</mark>. We will respond within <mark class="ph">[30]</mark> days. You can also delete journal entries inside the app.</p>
+    <p>To exercise these rights, email <mark class="ph">[EMAIL]</mark>. We will respond within <mark class="ph">[30]</mark> days. You can also delete your whole account inside the app (Profile &rarr; Delete my account) or follow the steps on our <a href="{{ route('account.deletion') }}">account deletion page</a>.</p>
 </section>
 
 <section class="sec">

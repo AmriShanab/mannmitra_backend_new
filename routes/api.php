@@ -42,6 +42,7 @@ Route::prefix('v1')->group(function () {
         Route::controller(UserController::class)->group(function () {
             Route::get('/', 'me');
             Route::put('/language', 'updateLanguage');
+            Route::delete('/account', 'deleteAccount');
         });
 
         Route::prefix('mood')->controller(MoodController::class)->group(function () {

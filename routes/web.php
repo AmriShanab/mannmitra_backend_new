@@ -13,6 +13,7 @@ Route::get('/', function () {
 
 Route::get('/privacy-policy', [PrivacyPolicyController::class, 'index'])->name('privacy.policy');
 Route::get('/terms-and-conditions', [PrivacyPolicyController::class, 'termsAndConditions'])->name('terms.and.conditions');
+Route::get('/delete-account', [PrivacyPolicyController::class, 'accountDeletion'])->name('account.deletion');
 
 
 Route::get('/test-admin', function () {

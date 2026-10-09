@@ -15,4 +15,9 @@ class PrivacyPolicyController extends Controller
     {
         return view('terms-and-conditions');
     }
+
+    public function accountDeletion()
+    {
+        return view('account-deletion');
+    }
 }

@@ -16,13 +16,13 @@
 
     <script>
         // 1. SETUP - Change these to match your real data
-        const SERVER_URL = "http://31.97.232.145"; // Your VPS IP
+        const SERVER_URL = "https://mann-mitra.co.in";
         const TICKET_ID = 'TKT-SRKWJSSOGZ';        // Use a REAL Ticket ID from your DB
         const SENDER_ID = 29;                      // Use the REAL User ID (Guest)
         const MESSAGE = 'Hello Listener, checking DB save!';
 
         // 2. CONNECT SOCKET
-        const socket = io(`${SERVER_URL}:3000`);
+        const socket = io(SERVER_URL);
 
         socket.on('connect', () => {
             document.getElementById('status').innerText = "Connected to Socket";
