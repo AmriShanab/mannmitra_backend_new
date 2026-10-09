@@ -212,8 +212,11 @@ class AppointmentController extends Controller
                 return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
             }
 
-            $appointment->status = 'completed';
-            $appointment->save();
+            // Idempotent: both sides may hang up; only live appointments move to "completed".
+            if (in_array($appointment->status, ['pending', 'confirmed'])) {
+                $appointment->status = 'completed';
+                $appointment->save();
+            }
 
             return response()->json(['status' => true, 'message' => 'Appointment Completed Successfully']);
         }

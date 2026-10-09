@@ -223,33 +223,61 @@
             }
         }
 
-        socket.on('peer_hangup', () => {
+        // Mark the appointment as finished on the server (idempotent).
+        async function closeAppointmentOnServer() {
+            try {
+                const res = await fetch(API_CLOSE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    credentials: 'same-origin',
+                    keepalive: true,
+                    body: JSON.stringify({ meeting_link: ROOM_ID })
+                });
+                if (!res.ok) console.error('Closing appointment failed: HTTP ' + res.status);
+            } catch (e) { console.error(e); }
+        }
+
+        let callEnded = false;
+
+        socket.on('peer_hangup', async () => {
+            if (callEnded) return;
+            callEnded = true;
+            await closeAppointmentOnServer();
             alert("Call ended by patient.");
             closeVideoCall();
         });
 
         async function endCall() {
+            if (callEnded) return;
             if (confirm("End session?")) {
+                callEnded = true;
                 socket.emit('hangup', { room: ROOM_ID });
-                try {
-                    await fetch(API_CLOSE_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                        },
-                        body: JSON.stringify({ meeting_link: ROOM_ID })
-                    });
-                } catch (e) { console.error(e); }
+                await closeAppointmentOnServer();
                 closeVideoCall();
             }
         }
 
         function closeVideoCall() {
+            callEnded = true;
             if (pc) pc.close();
             if (localStream) localStream.getTracks().forEach(t => t.stop());
-            window.location.href = "/psychiatrist/dashboard";
+            socket.disconnect();
+            // replace() drops the room from history, so Back can't return to a finished call.
+            window.location.replace("/psychiatrist/dashboard");
         }
+
+        // If the browser restores this page from its back/forward cache, never show a dead room.
+        window.addEventListener('pageshow', (e) => {
+            const nav = performance.getEntriesByType('navigation')[0];
+            if (e.persisted || (nav && nav.type === 'back_forward')) {
+                window.location.replace("/psychiatrist/dashboard");
+            }
+        });
 
         function toggleMute() {
             const track = localStream.getAudioTracks()[0];

@@ -338,7 +338,11 @@
                                     <i class="fas fa-${apt.mode === 'audio' ? 'phone' : 'video'}" style="margin-right:6px"></i>${escHtml(new Date(apt.scheduled_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}))}
                                 </div>
                             </div>
-                            <div class="row-actions"><a href="/meet/${encodeURIComponent(apt.appointment_id)}" class="btn btn-primary">Join</a></div>
+                            <div class="row-actions">
+                                ${['completed', 'closed', 'cancelled', 'expired'].includes(String(apt.status).toLowerCase())
+                                    ? `<span class="badge ${apt.status === 'cancelled' || apt.status === 'expired' ? 'warn' : 'ok'}">${escHtml(apt.status === 'completed' || apt.status === 'closed' ? 'Completed' : apt.status)}</span>`
+                                    : `<a href="/meet/${encodeURIComponent(apt.appointment_id)}" class="btn btn-primary">Join</a>`}
+                            </div>
                         </div>
                     `).join('');
                 } else {
