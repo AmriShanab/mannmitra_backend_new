@@ -1,18 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat with {{ $ticket->user->name ?? 'User' }} | MannMitra</title>
-
-    {{-- Fonts --}}
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-
-    {{-- Icons --}}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    {{-- Custom CSS --}}
-    <link rel="stylesheet" href="{{ asset('css/chat_room.css') }}">
+    @include('partials.portal-head')
+    <link rel="stylesheet" href="{{ asset('css/mm-chat.css') }}">
 </head>
 <body>
 
@@ -20,47 +13,42 @@
 
     {{-- ── HEADER ────────────────────────────────────────────── --}}
     <header class="chat-header">
-        <div class="chat-header-left">
-            <a href="{{ route('listener.dashboard') }}" class="btn-back" title="Back to dashboard">
+        <div class="ch-left">
+            <a href="{{ route('listener.dashboard') }}" class="icon-btn" title="Back to dashboard" aria-label="Back to dashboard">
                 <i class="fas fa-chevron-left"></i>
             </a>
 
-            <div class="header-avatar">
-                {{ strtoupper(substr($ticket->user->name ?? 'G', 0, 1)) }}
-            </div>
+            <div class="avatar">{{ strtoupper(substr($ticket->user->name ?? 'G', 0, 1)) }}</div>
 
-            <div>
-                <div class="header-user-name">{{ $ticket->user->name ?? 'Guest User' }}</div>
-                <div class="header-user-status">Active session</div>
+            <div style="min-width:0">
+                <div class="ch-name">{{ $ticket->user->name ?? 'Guest User' }}</div>
+                <div class="ch-status"><span class="online-dot"></span> Active session</div>
             </div>
         </div>
 
-        <div class="chat-header-right">
+        <div class="ch-right">
             <span class="ticket-badge">ID: {{ $ticket->ticket_id }}</span>
 
-            {{-- Theme Toggle --}}
-            <button class="btn-theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle dark/light mode">
+            <button class="icon-btn" id="themeToggle" title="Toggle theme" aria-label="Toggle dark/light mode">
                 <i class="fas fa-moon" id="themeIcon"></i>
             </button>
 
-            <button class="btn-end-session" id="endSessionBtn">End session</button>
+            <button class="btn btn-danger btn-end" id="endSessionBtn"><i class="fas fa-phone-slash"></i> <span>End session</span></button>
         </div>
     </header>
 
-    {{-- ── BODY: Messages + AI Sidebar ──────────────────────── --}}
+    {{-- ── BODY: Messages ───────────────────────────────────── --}}
     <div class="chat-body">
-
-        {{-- Messages Column --}}
         <div class="chat-messages" id="chat-messages">
 
             <div class="system-note">
-                <span>Conversation started at {{ $ticket->created_at->format('h:i A') }}</span>
+                <span><i class="far fa-clock"></i>&nbsp; Conversation started at {{ $ticket->created_at->format('h:i A') }}</span>
             </div>
 
             {{-- Initial request bubble --}}
             <div class="message-wrapper theirs">
                 <div class="message-bubble">
-                    <strong>Initial request:</strong><br>
+                    <strong>Initial request</strong><br>
                     {{ $ticket->subject }}
                 </div>
                 <span class="message-time">System note</span>
@@ -69,38 +57,7 @@
             {{-- Dynamically loaded history will appear here via JS --}}
 
         </div>
-
-        {{-- AI Suggestions Sidebar --}}
-        {{-- <aside class="ai-sidebar" id="ai-sidebar" aria-label="AI response suggestions">
-
-            <div class="ai-sidebar-header">
-                <i class="fas fa-wand-magic-sparkles" style="font-size:13px; color: var(--clr-brand);" aria-hidden="true"></i>
-                <span>Suggestions</span>
-                <span class="ai-label">AI</span>
-            </div>
-
-            <div class="ai-sidebar-body" id="ai-sidebar-body">
-
-                
-                <div class="ai-loading" id="ai-loading">
-                    <div class="ai-spinner"></div>
-                    <span>Generating suggestions…</span>
-                </div>
-
-                
-                <div id="ai-suggestions-list" style="display:none; display:flex; flex-direction:column; gap:8px;">
-                    
-                </div>
-
-            </div>
-
-            <div class="ai-disclaimer">
-                <p>Suggestions are AI-generated. Always respond in your own voice.</p>
-            </div>
-
-        </aside> --}}
-
-    </div>{{-- end .chat-body --}}
+    </div>
 
     {{-- ── FOOTER / INPUT ────────────────────────────────────── --}}
     <footer class="chat-footer">
@@ -117,13 +74,13 @@
                 <i class="fas fa-paper-plane"></i>
             </button>
         </div>
-        <div class="input-hint" id="input-hint">Suggestions update after each message</div>
+        <div class="input-hint" id="input-hint">Press Enter to send</div>
     </footer>
 
-</div>{{-- end .chat-layout --}}
+</div>
 
 {{-- Toast --}}
-<div class="toast-msg" id="toast" aria-live="polite"></div>
+<div class="toast" id="toast" aria-live="polite"></div>
 
 
 {{-- ── SCRIPTS ─────────────────────────────────────────────── --}}
@@ -225,7 +182,7 @@ async function sendMessage() {
     // 1. Show in UI immediately
     addMessage(text, 'mine', timestamp);
     messageInput.value = '';
-    setHint("Suggestions update after each message", false);
+    setHint("Press Enter to send", false);
 
     // 2. Persist first; only broadcast once the server accepted the message.
     try {
@@ -399,7 +356,7 @@ function renderSuggestions(suggestions) {
         aiList.appendChild(card);
     });
 
-    setHint("Suggestions update after each message", false);
+    setHint("Press Enter to send", false);
 }
 
 // ── Hint text helper ──────────────────────────────────────────
@@ -417,32 +374,9 @@ function showToast(msg) {
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
-// ── Theme Toggle ──────────────────────────────────────────────
-(function () {
-    const html    = document.documentElement;
-    const btn     = document.getElementById('themeToggle');
-    const icon    = document.getElementById('themeIcon');
-    const STORAGE = 'mm_theme';
-
-    const saved = localStorage.getItem(STORAGE) || 'light';
-    html.setAttribute('data-theme', saved);
-    updateIcon(saved);
-
-    btn.addEventListener('click', function () {
-        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        html.setAttribute('data-theme', next);
-        localStorage.setItem(STORAGE, next);
-        updateIcon(next);
-    });
-
-    function updateIcon(theme) {
-        icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-    }
-})();
-
 // ── Bootstrap ─────────────────────────────────────────────────
 window.addEventListener('load', loadChatHistory);
 </script>
-
+<script src="{{ asset('js/mm-portal.js') }}"></script>
 </body>
 </html>
