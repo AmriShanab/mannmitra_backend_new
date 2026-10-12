@@ -89,8 +89,8 @@ class WhatsAppController extends Controller
                 $fileContent = $response->body();
             }
         } elseif (isset($audioObj['id'])) {
-            $whapiUrl = env('WHAPI_URL');
-            $whapiToken = env('WHAPI_TOKEN');
+            $whapiUrl = config('services.whapi.url');
+            $whapiToken = config('services.whapi.token');
             $baseUrl = preg_replace('#/v\d+/?$#', '', $whapiUrl);
 
             $response = Http::withHeaders([
@@ -109,7 +109,7 @@ class WhatsAppController extends Controller
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('OPENAI_API_KEY')
+                'Authorization' => 'Bearer ' . config('openai.api_key')
             ])
                 ->attach('file', $fileContent, 'audio.ogg')
                 ->post('https://api.openai.com/v1/audio/transcriptions', [
@@ -132,7 +132,7 @@ class WhatsAppController extends Controller
     {
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+                'Authorization' => 'Bearer ' . config('openai.api_key'),
                 'Content-Type' => 'application/json',
             ])->timeout(30)->post('https://api.openai.com/v1/audio/speech', [
                 'model' => 'tts-1',
@@ -186,7 +186,7 @@ class WhatsAppController extends Controller
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+                'Authorization' => 'Bearer ' . config('openai.api_key'),
                 'Content-Type' => 'application/json',
             ])->post('https://api.openai.com/v1/chat/completions', [
                 'model' => 'gpt-3.5-turbo',
@@ -202,8 +202,8 @@ class WhatsAppController extends Controller
 
     private function sendWhatsAppMessage($to, $text)
     {
-        $whapiUrl = env('WHAPI_URL');
-        $whapiToken = env('WHAPI_TOKEN');
+        $whapiUrl = config('services.whapi.url');
+        $whapiToken = config('services.whapi.token');
 
         Log::info("4. Sending back to Whapi... To: $to");
 
@@ -225,8 +225,8 @@ class WhatsAppController extends Controller
 
     private function sendWhatsAppVoiceMessage($to, $audioContent)
     {
-        $whapiUrl = env('WHAPI_URL');
-        $whapiToken = env('WHAPI_TOKEN');
+        $whapiUrl = config('services.whapi.url');
+        $whapiToken = config('services.whapi.token');
 
         Log::info("4. Sending voice back to Whapi... To: $to");
 

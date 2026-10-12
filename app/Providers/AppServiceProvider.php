@@ -21,7 +21,10 @@ use App\Repositories\SessionRepository;
 use App\Repositories\SubscriptionRepository;
 use App\Repositories\TicketRepository;
 use App\Repositories\UserRepository;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -48,6 +51,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Caps OpenAI-backed companion turns per user (falls back to IP).
+        RateLimiter::for('companion', function (Request $request) {
+            return Limit::perMinute(20)->by($request->user()?->id ?: $request->ip());
+        });
+
         // 2. Define the "admin-access" rule
         Gate::define('admin-access', function (User $user) {
             return $user->role === 'admin';

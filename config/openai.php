@@ -46,4 +46,39 @@ return [
     */
 
     'request_timeout' => env('OPENAI_REQUEST_TIMEOUT', 30),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Models, retries and token caps (used by App\Ai\AiClient)
+    |--------------------------------------------------------------------------
+    | "chat" is the full model for free-form replies; "mini" is for triage,
+    | classification and short reactions.
+    */
+    'models' => [
+        'chat' => env('OPENAI_CHAT_MODEL', 'gpt-4o'),
+        'mini' => env('OPENAI_MINI_MODEL', 'gpt-4o-mini'),
+        'transcribe' => env('OPENAI_TRANSCRIBE_MODEL', 'whisper-1'),
+    ],
+    'retries' => (int) env('OPENAI_RETRIES', 2),
+    'retry_sleep_ms' => (int) env('OPENAI_RETRY_SLEEP_MS', 300),
+    'max_tokens' => (int) env('OPENAI_MAX_TOKENS', 600),
+
+    // AI-backed chat turns per user per day (0 disables the cap). Exercises on the
+    // state machine do not count against this.
+    'daily_turns' => [
+        'free' => (int) env('AI_DAILY_TURNS_FREE', 60),
+        'subscriber' => (int) env('AI_DAILY_TURNS_SUBSCRIBER', 300),
+    ],
+
+    // Estimated USD per 1M tokens, for the usage report only. Check OpenAI's pricing page and
+    // adjust here; unknown models are reported with a cost of 0.
+    'prices' => [
+        'gpt-4o' => ['in' => 2.50, 'out' => 10.00],
+        'gpt-4o-mini' => ['in' => 0.15, 'out' => 0.60],
+        'whisper-1' => ['in' => 0.0, 'out' => 0.0],
+    ],
+
+    // Server-tracked exercise state machines (breathing, grounding). Set false to fall
+    // back to the legacy LLM-driven exercise prompts.
+    'exercise_state_machine' => (bool) env('EXERCISES_STATE_MACHINE', true),
 ];

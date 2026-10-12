@@ -18,6 +18,7 @@ class ActivitySeeder extends Seeder
             [
                 'activity_id' => 'reframing_01', // New field!
                 'title' => 'Reframing',
+                'translations' => json_encode(['hi' => ['title' => 'रीफ़्रेमिंग', 'description' => 'नकारात्मक विचारों को संतुलित नज़रिए में बदलना सीखें।']]),
                 'description' => 'Learn to reframe negative thoughts into positive ones.',
                 'duration' => '10 MIN',
                 'icon_name' => 'psychology',
@@ -28,13 +29,25 @@ class ActivitySeeder extends Seeder
             [
                 'activity_id' => 'breathing_01', // New field!
                 'title' => 'Breathing',
+                'translations' => json_encode(['hi' => ['title' => 'साँस की एक्सरसाइज़', 'description' => 'तनाव कम करने के लिए गहरी साँस लेने का अभ्यास करें।']]),
                 'description' => 'Practice deep breathing exercises to reduce stress.',
                 'duration' => '5 MIN',
                 'icon_name' => 'air',
                 'color_hex' => '57B9FF',
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
-            ]
+            ],
+            [
+                'activity_id' => 'grounding_01',
+                'title' => 'Grounding',
+                'translations' => json_encode(['hi' => ['title' => 'ग्राउंडिंग', 'description' => '5-4-3-2-1 तकनीक से चिंता भरे विचारों को शांत करें।']]),
+                'description' => 'Calm anxious thoughts with the 5-4-3-2-1 senses technique.',
+                'duration' => '5 MIN',
+                'icon_name' => 'awesome',
+                'color_hex' => '4CC9A6',
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ],
         ];
 
         // 2. Clear the table first so we don't get duplicates if you run it twice
@@ -42,5 +55,8 @@ class ActivitySeeder extends Seeder
 
         // 3. ACTUALLY insert the data into the database!
         DB::table('activities')->insert($activities);
+
+        // The catalog is cached for a few minutes; refresh it right away.
+        \Illuminate\Support\Facades\Cache::forget(\App\Services\ActivityService::CACHE_KEY);
     }
 }

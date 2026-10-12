@@ -94,7 +94,20 @@ class SubscriptionController extends Controller
             $payment = $request->input('payload.payment.entity', []);
             $notes = $order['notes'] ?? [];
 
-            if (is_array($notes) && ($notes['type'] ?? null) === 'subscription' && !empty($payment['id'])) {
+            if (is_array($notes) && ($notes['type'] ?? null) === 'exercise' && !empty($payment['id'])) {
+                $user = User::find($notes['user_id'] ?? null);
+                if ($user) {
+                    try {
+                        app(\App\Services\ExerciseAccessService::class)->grant($user, $notes['activity_id'] ?? '', [
+                            'id' => $order['id'],
+                            'amount' => $order['amount'],
+                        ], $payment['id']);
+                    } catch (\Throwable $e) {
+                        Log::error('Razorpay webhook exercise grant failed: ' . $e->getMessage());
+                        return response()->json(['status' => false], 500);
+                    }
+                }
+            } elseif (is_array($notes) && ($notes['type'] ?? null) === 'subscription' && !empty($payment['id'])) {
                 $user = User::find($notes['user_id'] ?? null);
                 if ($user) {
                     try {

@@ -13,10 +13,10 @@ class ActivityController extends Controller
         $this->activityService = $activityService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $allActivities = $this->activityService->getAllActivities();
+            $allActivities = $this->activityService->getAllActivities($request->user(), $request->query('lang'));
             return response()->json([
                 'success' => true,
                 'data' =>$allActivities

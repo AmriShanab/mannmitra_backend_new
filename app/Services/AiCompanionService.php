@@ -2,6 +2,11 @@
 
 namespace App\Services;
 
+use App\Ai\AiBudgetService;
+use App\Ai\AiResponseValidator;
+use App\Ai\PromptRepository;
+use App\Domain\Exercises\Exercise;
+use App\Domain\Exercises\ExerciseSessionService;
 use App\Enums\UserIntent;
 use App\Models\User;
 use App\Repositories\CompanionRepository;
@@ -12,11 +17,36 @@ class AiCompanionService
 {
     protected $repo;
     protected $openAi;
+    protected $crisisService;
+    protected $exerciseAccess;
+    protected $exercises;
+    protected $validator;
+    protected $prompts;
+    protected $budget;
 
-    public function __construct(CompanionRepository $repo, AIService $openAi)
+    private const INTENT_TO_ACTIVITY = [
+        'cbt_breathing' => 'breathing_01',
+        'cbt_grounding' => 'grounding_01',
+        'cbt_reframing' => 'reframing_01',
+    ];
+
+    // Helpline numbers live in code so the model can never alter them.
+    private const CRISIS_OPTIONS = [
+        ['id' => '9152987821', 'label' => 'Call iCall'],
+        ['id' => '9820466726', 'label' => 'Call AASRA'],
+        ['id' => '18602662345', 'label' => 'Call Vandrevala'],
+    ];
+
+    public function __construct(CompanionRepository $repo, AIService $openAi, CrisisService $crisisService, ExerciseAccessService $exerciseAccess, ExerciseSessionService $exercises, AiResponseValidator $validator, PromptRepository $prompts, AiBudgetService $budget)
     {
+        $this->budget = $budget;
+        $this->exerciseAccess = $exerciseAccess;
+        $this->exercises = $exercises;
+        $this->validator = $validator;
+        $this->prompts = $prompts;
         $this->repo = $repo;
         $this->openAi = $openAi;
+        $this->crisisService = $crisisService;
     }
 
     public function processInteraction($user, $inputType, $inputValue, $audioFile = null)
@@ -54,6 +84,13 @@ class AiCompanionService
                 break;
 
             case 'buttons':
+                // Distress-level choices inside a managed exercise (e.g. reframing).
+                if (str_starts_with((string) $inputValue, 'rf_int_')
+                    && ($managedRun = $this->exercises->activeManagedRun($user))) {
+                    $this->repo->createMessage($session->id, 'user', 'text', "[User selected: $inputValue]");
+                    return $this->exercises->advance($session, $user, $managedRun, Exercise::INPUT_CHOICE, $inputValue);
+                }
+
                 // THE CBT INTERCEPTOR
                 if (str_starts_with($inputValue, 'start_cbt_')) {
                     $cbtId = str_replace('start_cbt_', '', $inputValue);
@@ -66,8 +103,17 @@ class AiCompanionService
                     $activityId = str_replace('cbt_ready_', '', $inputValue);
                     $userMessageContent = "[User clicked: I'm ready / Next Step]";
 
+                    $run = $this->exerciseAccess->ensureRun($user, $activityId);
+                    if (!$run) {
+                        return $this->paymentRequiredNode($session, $user, $activityId);
+                    }
+
                     // Save message and GO DIRECTLY TO EXERCISE ROUTE!
                     $this->repo->createMessage($session->id, 'user', 'text', $userMessageContent);
+
+                    if ($this->exercises->isManaged($activityId)) {
+                        return $this->exercises->advance($session, $user, $run, Exercise::INPUT_NEXT);
+                    }
                     return $this->handleCbtExerciseRoute($session, $user, $activityId, $userMessageContent);
                 } else {
                     $userMessageContent = "[User selected button ID: $inputValue]";
@@ -93,6 +139,24 @@ class AiCompanionService
             ->whereDate('created_at', \Carbon\Carbon::today())
             ->exists();
 
+        // 2.5 Safety net: keyword crisis check on every free-text input, even mid-exercise.
+        if (in_array($inputType, ['text_input', 'voice_record'], true)
+            && $this->crisisService->detectCrisis((string) $userMessageContent)) {
+            return $this->handleCrisisRoute($session, $user, $inputType, $userMessageContent);
+        }
+
+        // 2.6 Managed exercises run on server-side state: no triage, no LLM routing.
+        if ($inputType === 'emoji_slider') {
+            $wrapUp = $this->exercises->wrapUpMood($session, $user, $inputValue);
+            if ($wrapUp) {
+                return $wrapUp;
+            }
+        }
+        if (in_array($inputType, ['text_input', 'voice_record'], true)
+            && ($managedRun = $this->exercises->activeManagedRun($user))) {
+            return $this->exercises->advance($session, $user, $managedRun, Exercise::INPUT_TEXT, (string) $userMessageContent);
+        }
+
         // 3. Day 1 Check (Onboarding)
         if ($this->repo->getTotalUserMessages($user->id) <= 1 && $inputType === 'init' && !$hasMoodToday) {
             return $this->handleDayOneOnboarding($session, $user);
@@ -108,6 +172,11 @@ class AiCompanionService
             return $this->handleCbtInitRoute($session, $user, $inputValue);
         }
 
+        // 3.9 Daily AI budget: free chat turns are capped; the safety net above is not.
+        if (!$this->budget->consume($user)) {
+            return $this->budgetExhaustedNode($session, $user);
+        }
+
         $recentMessages = $this->repo->getRecentMessages($session->id);
 
         // 4. The Triage Step
@@ -121,6 +190,11 @@ class AiCompanionService
             case 'cbt_breathing':
             case 'cbt_grounding':
             case 'cbt_reframing':
+                // Exercises only run inside a paid/started run (or its wrap-up turn).
+                $managedActivity = self::INTENT_TO_ACTIVITY[$intent] ?? '';
+                if ($this->exercises->isManaged($managedActivity) || !$this->exerciseAccess->hasLiveRun($user)) {
+                    return $this->handleVentingRoute($session, $user, $inputType, $userMessageContent);
+                }
                 return $this->handleCbtExerciseRoute($session, $user, $intent, $userMessageContent);
 
             case 'crisis':
@@ -151,40 +225,13 @@ class AiCompanionService
     {
         if (empty(trim($inputValue))) return 'happy_casual';
 
-        $languageName = ($userLanguage === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
-
-        $systemPrompt = "
-            You are an ultra-fast triage routing assistant for a mental health app.
-            Analyze the user's latest message AND the Recent Conversation to classify their intent.
-            
-            CATEGORIES:
-            - 'cbt_breathing': The user is currently participating in the Breathing exercise.
-            - 'cbt_grounding': The user is currently participating in a Grounding exercise (e.g. 5-4-3-2-1).
-            - 'cbt_reframing': The user is currently answering questions for a Cognitive Reframing exercise.
-            - 'crisis': Self-harm, extreme panic, or immediate danger.
-            - 'venting_sad': Crying, stressed, complaining, anxious, lonely.
-            - 'happy_casual': Good news, casual greetings, normal non-stressful chat.
-            - 'journaling': Explicitly wants to save a diary entry.
-            - 'needs_distraction': Bored, asking for a game, or wanting to change the subject.
-
-            RULES:
-            1. Output STRICTLY in JSON format.
-            2. If the recent conversation shows an active, unfinished exercise, you MUST return the corresponding 'cbt_' category.
-
-            CONTEXT:
-            Recent Conversation: {$recentMessages}
-
-            EXPECTED OUTPUT FORMAT:
-            {
-                \"intent\": \"<one_of_the_categories_above>\"
-            }
-        ";
+        $systemPrompt = $this->prompts->render('triage', ['recent_messages' => $recentMessages]);
 
         try {
             $response = $this->openAi->getUserIntentUsingMini($systemPrompt, "User's message: \"" . $inputValue . "\"");
-            if (isset($response['intent'])) return $response['intent'];
-            return 'venting_sad';
+            return $this->validator->intent($response, UserIntent::all()) ?? 'venting_sad';
         } catch (\Exception $e) {
+            Log::warning('Intent triage failed: ' . $e->getMessage());
             return 'venting_sad';
         }
     }
@@ -205,6 +252,14 @@ class AiCompanionService
 
     private function handleCbtInitRoute($session, $user, $activityId)
     {
+        if (!$this->exerciseAccess->ensureRun($user, $activityId)) {
+            return $this->paymentRequiredNode($session, $user, $activityId);
+        }
+
+        if ($this->exercises->isManaged($activityId)) {
+            return $this->exercises->start($session, $user, $activityId);
+        }
+
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
         if ($activityId === 'breathing_01') {
@@ -294,32 +349,64 @@ class AiCompanionService
                     \"options\": []
                 }
             ";
-         } // else {
-        //     Log::info("User is in Reframing Exercise. Recent Messages: " . $recentMessages);
-        //     $systemPrompt = "
-        //         You are Mann Mitra, a warm, caring friend helping the user reframe a negative thought. DO NOT sound like a clinical therapist or use overly academic psychology terms.
-                
-        //         CRITICAL ANTI-LOOP & UI RULES:
-        //         1. Read their last message. Acknowledge it gently and empathetically.
-        //         2. Guide them like a friend: What's the thought? -> Is there proof against it? -> How can we look at this more fairly? DO NOT repeat the previous step.
-        //         3. ALWAYS set 'ui_mode' to 'text_input' during the exercise.
-        //         4. ENDING: Once they create a fairer, balanced thought, validate them warmly, ask how they are feeling now, and STRICTLY set 'ui_mode' to 'emoji_slider' with [].
-        //         5. DOUBLE SLIDER PREVENTION: If the user just submitted a mood score (e.g., 'User Indicated a mood score...'), the exercise is OVER. Acknowledge their feeling warmly, ask what they want to talk about next, and STRICTLY set 'ui_mode' to 'text_input' (NEVER use emoji_slider again here).
-                
-        //         LANGUAGE: Communicate in {$languageName}.
-                
-        //         CONTEXT: {$recentMessages}
-                
-        //         JSON OUTPUT FORMAT:
-        //         {
-        //             \"ai_message\": \"<your friendly instruction or post-score acknowledgement>\",
-        //             \"ui_mode\": \"<text_input or emoji_slider>\",
-        //             \"options\": []
-        //         }
-        //     ";
-        // }
+        } else {
+            Log::info("User is in Reframing Exercise. Recent Messages: " . $recentMessages);
+            $systemPrompt = $this->prompts->render('reframing', [
+                'language' => $languageName,
+                'recent_messages' => $recentMessages,
+            ]);
+        }
 
-        return $this->executeAiRoute($session, $systemPrompt, "User input: " . $userMessageContent);
+        $result = $this->executeAiRoute($session, $systemPrompt, "User input: " . $userMessageContent, [], null, 'exercise.' . $activityId);
+
+        // The prompts end every exercise with the mood slider; that is the "finished" signal.
+        if (($result['ui_mode'] ?? null) === 'emoji_slider' && $result['node_id'] !== 'msg_error_fallback') {
+            $run = $this->exerciseAccess->completeActiveRun($user);
+            if ($run) {
+                $result['exercise_completed'] = true;
+                $result['sessions_left'] = $run->free_pass ? null : $this->exerciseAccess->sessionsLeft($user, $run->activity_id);
+            }
+        }
+
+        return $result;
+    }
+
+    private function budgetExhaustedNode($session, $user)
+    {
+        $message = ($user->language === 'hi')
+            ? "Aaj ke liye hamari baat ki limit poori ho gayi hai, kal phir milte hain. Aap abhi bhi mood log kar sakte hain ya journal likh sakte hain. Agar aap mushkil mein hain, to iCall (9152987821) ya AASRA (9820466726) par abhi call kijiye."
+            : "We've reached today's chat limit, and I'll be back tomorrow. You can still log your mood or write in your journal. If you're struggling right now, please call iCall (9152987821) or AASRA (9820466726).";
+
+        $this->repo->createMessage($session->id, 'ai', 'text', $message);
+
+        return [
+            'node_id' => 'budget_exhausted',
+            'ai_message' => $message,
+            'ui_mode' => 'text_input',
+            'options' => [],
+        ];
+    }
+
+    private function paymentRequiredNode($session, $user, $activityId)
+    {
+        $price = $this->exerciseAccess->pricing();
+        $message = ($user->language === 'hi')
+            ? "Is exercise ke {$price['sessions']} sessions unlock karne ke liye ₹{$price['amount']} ka payment karein."
+            : "Unlock {$price['sessions']} sessions of this exercise for ₹{$price['amount']} to continue.";
+
+        $this->repo->createMessage($session->id, 'ai', 'text', $message);
+
+        return [
+            'node_id' => 'payment_required',
+            'ai_message' => $message,
+            'ui_mode' => 'payment_required',
+            'options' => [],
+            'payment' => [
+                'activity_id' => $activityId,
+                'price' => $price['amount'],
+                'pack_sessions' => $price['sessions'],
+            ],
+        ];
     }
 
     // =========================================================================
@@ -332,19 +419,17 @@ class AiCompanionService
         $this->repo->createCrisisAlert($session->id, 'AI Triage Detected Crisis');
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
-        $systemPrompt = "
-            You are Mann Mitra, a crisis-intervention companion. The user is in acute distress.
-            TONE RULES: Communicate in {$languageName}. Be gentle, grounding, and safe. Max 2 short sentences.
-            UI WIDGET DECISION: MUST set 'ui_mode' to 'crisis_cards'.
-            
-            JSON OUTPUT FORMAT:
-            {
-                \"ai_message\": \"<message>\",
-                \"ui_mode\": \"crisis_cards\",
-                \"options\": [{\"id\": \"9152987821\", \"label\": \"Call iCall\"}, {\"id\": \"9820466726\", \"label\": \"Call AASRA\"}, {\"id\": \"18602662345\", \"label\": \"Call Vandrevala\"}]
-            }
-        ";
-        return $this->executeAiRoute($session, $systemPrompt, "User's message: " . $userMessageContent);
+        $systemPrompt = $this->prompts->render('crisis', ['language' => $languageName]);
+        return $this->executeAiRoute(
+            $session,
+            $systemPrompt,
+            "User's message: " . $userMessageContent,
+            ['ui_mode' => 'crisis_cards', 'options' => self::CRISIS_OPTIONS],
+            ($user->language === 'hi')
+                ? 'Aap akele nahi hain. Please abhi in helplines par baat kijiye, main yahin hoon.'
+                : "You're not alone. Please reach out to one of these helplines right now. I'm here with you.",
+            'companion.crisis'
+        );
     }
 
     private function handleHappyRoute($session, $user, $inputType, $userMessageContent)
@@ -352,19 +437,7 @@ class AiCompanionService
         $recentMessages = $this->repo->getRecentMessages($session->id);
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
-        $systemPrompt = "
-            You are Mann Mitra.
-            TONE & EXIT STRATEGY: Communicate in {$languageName}. If they just said 'I feel better', validate it warmly. Pivot back to a normal conversation with a grounded question.
-            UI WIDGET DECISION: Use 'voice_record' if asked. Use 'text_input' for open-ended questions. Use 'buttons' for quick choices.
-            CONTEXT: {$recentMessages}
-            
-            JSON OUTPUT FORMAT:
-            {
-                \"ai_message\": \"<reply>\",
-                \"ui_mode\": \"<buttons, text_input, or voice_record>\",
-                \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}]
-            }
-        ";
+        $systemPrompt = $this->prompts->render('happy', ['language' => $languageName, 'recent_messages' => $recentMessages]);
 
         $userInstruction = ($inputType === 'init') ? "SYSTEM INSTRUCTION: The user just opened the app. Greet them warmly." : "User's message: " . $userMessageContent;
         return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
@@ -373,14 +446,8 @@ class AiCompanionService
     private function handleJournalingRoute($session, $user, $inputType, $userMessageContent)
     {
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
-        $systemPrompt = "
-            You are Mann Mitra. The user wants to journal.
-            TONE RULES: Communicate in {$languageName}. Be supportive and reflective.
-            UI WIDGET DECISION: Set 'ui_mode' to 'text_input'.
-            
-            JSON OUTPUT FORMAT:
-            { \"ai_message\": \"<short prompt>\", \"ui_mode\": \"text_input\", \"options\": [] }
-        ";
+        $systemPrompt = $this->prompts->render('journaling', ['language' => $languageName]);
+
         return $this->executeAiRoute($session, $systemPrompt, "User's message: " . $userMessageContent);
     }
 
@@ -389,14 +456,8 @@ class AiCompanionService
         $recentMessages = $this->repo->getRecentMessages($session->id);
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
-        $systemPrompt = "
-            You are Mann Mitra. The user wants a distraction.
-            CRITICAL ANTI-LOOP: Provide a joke/fact/game immediately. If they say 'I feel better', EXIT distraction mode. Ask what's next and set 'ui_mode' to 'text_input'.
-            CONTEXT: {$recentMessages}
-            
-            JSON OUTPUT FORMAT:
-            { \"ai_message\": \"<reply>\", \"ui_mode\": \"<buttons or text_input>\", \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}] }
-        ";
+        $systemPrompt = $this->prompts->render('distraction', ['recent_messages' => $recentMessages]);
+
         return $this->executeAiRoute($session, $systemPrompt, "User's message: " . $userMessageContent);
     }
 
@@ -406,28 +467,20 @@ class AiCompanionService
         $recentMoods = $this->repo->getRecentMoods($user->id);
         $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
 
-        $systemPrompt = "
-            You are Mann Mitra.
-            CRITICAL CBT SUGGESTION RULE: If user shows severe anxiety, offer grounding. Set 'ui_mode' to 'buttons'. Options: [{\"id\": \"start_cbt_grounding_01\", \"label\": \"Yes, let's start\"}, {\"id\": \"continue_chat\", \"label\": \"No, just talk\"}]
-            TONE RULES: Communicate in {$languageName}. Be deeply validating ('I hear you'). No toxic positivity.
-            CONTEXT: Past 7 Days Moods: {$recentMoods} | Recent Conversation: {$recentMessages}
-            
-            JSON OUTPUT FORMAT:
-            { \"ai_message\": \"<reply>\", \"ui_mode\": \"<buttons, text_input, or voice_record>\", \"options\": [{\"id\": \"opt_1\", \"label\": \"Short Label\"}] }
-        ";
+        $systemPrompt = $this->prompts->render('venting', ['language' => $languageName, 'recent_moods' => $recentMoods, 'recent_messages' => $recentMessages]);
 
         $userInstruction = ($inputType === 'init') ? "SYSTEM INSTRUCTION: The user just opened the app. Acknowledge they were feeling down recently and ask how they feel right now." : "User's message: " . $userMessageContent;
         return $this->executeAiRoute($session, $systemPrompt, $userInstruction);
     }
 
-    private function executeAiRoute($session, $systemPrompt, $userInstruction)
+    private function executeAiRoute($session, $systemPrompt, $userInstruction, array $override = [], ?string $fallbackMessage = null, string $feature = 'companion.chat')
     {
         try {
-            $aiData = $this->openAi->getChatCompletion($systemPrompt, $userInstruction);
+            $aiData = $this->validator->node($this->openAi->getChatCompletion($systemPrompt, $userInstruction, $feature));
 
-            $aiMessage = $aiData['ai_message'] ?? 'I am here for you.';
-            $ui_mode = $aiData['ui_mode'] ?? 'text_input';
-            $options = $aiData['options'] ?? [];
+            $aiMessage = $aiData['ai_message'];
+            $ui_mode = $override['ui_mode'] ?? $aiData['ui_mode'];
+            $options = $override['options'] ?? $aiData['options'];
 
             $this->repo->createMessage($session->id, 'ai', 'text', $aiMessage);
 
@@ -439,11 +492,13 @@ class AiCompanionService
             ];
         } catch (\Exception $e) {
             Log::error("AI Route Error: " . $e->getMessage());
+            $message = $fallbackMessage ?? 'I am here with you, but my connection is a bit slow right now. You can keep typing if you want.';
+            $this->repo->createMessage($session->id, 'ai', 'text', $message);
             return [
                 'node_id' => 'msg_error_fallback',
-                'ai_message' => 'I am here with you, but my connection is a bit slow right now. You can keep typing if you want.',
-                'ui_mode' => 'text_input',
-                'options' => []
+                'ai_message' => $message,
+                'ui_mode' => $override['ui_mode'] ?? 'text_input',
+                'options' => $override['options'] ?? []
             ];
         }
     }

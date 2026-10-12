@@ -9,6 +9,9 @@ class UserIntent
     public const HAPPY_CASUAL = 'happy_casual';
     public const JOURNALING = 'journaling';
     public const NEEDS_DISTRACTION = 'needs_distraction';
+    public const CBT_BREATHING = 'cbt_breathing';
+    public const CBT_GROUNDING = 'cbt_grounding';
+    public const CBT_REFRAMING = 'cbt_reframing';
 
     public static function all(): array
     {
@@ -18,6 +21,9 @@ class UserIntent
             self::HAPPY_CASUAL,
             self::JOURNALING,
             self::NEEDS_DISTRACTION,
+            self::CBT_BREATHING,
+            self::CBT_GROUNDING,
+            self::CBT_REFRAMING,
         ];
     }
 }

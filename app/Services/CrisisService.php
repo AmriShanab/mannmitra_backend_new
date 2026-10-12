@@ -16,7 +16,7 @@ class CrisisService
         
         // Hinglish / Hindi
         'mar jaunga', 'mar jaungi', 'khatam karna', 'zindagi bekar hai',
-        ' आत्महत्या', 'marne ka mann'
+        'आत्महत्या', 'marne ka mann'
     ];
 
     public function __construct(CrisisRepositoryInterface $crisisRepo)
@@ -37,9 +37,9 @@ class CrisisService
         return null;
     }
 
-    public function logCrisis($sessionId, $words)
+    public function logCrisis($sessionId, $words, $severity = 'high')
     {
-        $this->crisisRepo->logAlert($sessionId, $words);
+        $this->crisisRepo->logAlert($sessionId, $words, $severity);
     }
 
     public function getCrisisResponse()

@@ -2,79 +2,45 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+use App\Ai\AiClient;
 
+/**
+ * Compatibility facade over App\Ai\AiClient so existing callers (companion, journal commands,
+ * WhatsApp) keep their signatures while sharing one configured, logged OpenAI client.
+ */
 class AIService
 {
-    public function getChatCompletion($systemPrompt, $userInstruction)
+    public function __construct(protected AiClient $client)
     {
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
-            'Content-Type' => 'application/json',
-        ])->timeout(60)->post('https://api.openai.com/v1/chat/completions', [
-            'model' => 'gpt-4o',
-            'response_format' => ['type' => 'json_object'],
-            'messages' => [
-                ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $userInstruction]
-            ],
-            'temperature' => 0.7
-        ]);
-
-        if ($response->successful()) {
-            return json_decode($response->json('choices.0.message.content'), true);
-        }
-
-        throw new \Exception("OpenAI API failed with status: " . $response->status());
     }
 
-    public function getUserIntentUsingMini($prompt, $userInstruction) 
+    public function getChatCompletion($systemPrompt, $userInstruction, string $feature = 'companion.chat')
     {
-        $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
-            'Content-Type' => 'application/json',
-        ])->timeout(30)->post('https://api.openai.com/v1/chat/completions', [
-            'model' => 'gpt-4o-mini',
-            'response_format' => ['type' => 'json_object'],
-            'messages' => [
-                ['role' => 'system', 'content' => $prompt],
-                ['role' => 'user', 'content' => $userInstruction]
-            ],
-            'temperature' => 0.0 
-        ]);
-
-        if($response->successful()){
-            $content = $response->json('choices.0.message.content');
-            return json_decode($content, true); 
-        }
-
-        throw new \Exception("OpenAI API failed with status: " . $response->status());
+        return $this->client->chatJson($feature, $systemPrompt, $userInstruction, AiClient::TIER_CHAT, 0.7);
     }
 
+    public function getUserIntentUsingMini($prompt, $userInstruction, string $feature = 'companion.triage')
+    {
+        return $this->client->chatJson($feature, $prompt, $userInstruction, AiClient::TIER_MINI, 0.0, 60);
+    }
+
+    /**
+     * Cheap, short JSON reply (reactions, classifications) on the mini model.
+     */
+    public function getMiniCompletion($systemPrompt, $userInstruction, string $feature, ?int $maxTokens = 80)
+    {
+        return $this->client->chatJson($feature, $systemPrompt, $userInstruction, AiClient::TIER_MINI, 0.7, $maxTokens);
+    }
 
     public function transcribeAudio($audioFile, $languageCode = 'en')
     {
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
-            ])->attach(
-                'file',
-                file_get_contents($audioFile->getRealPath()),
-                $audioFile->getClientOriginalName()
-            )->post('https://api.openai.com/v1/audio/transcriptions', [
-                'model' => 'whisper-1',
-                'language' => $languageCode
-            ]);
+        $text = $this->client->transcribe(
+            'companion.transcribe',
+            $audioFile->getRealPath(),
+            $audioFile->getClientOriginalName(),
+            $languageCode
+        );
 
-            if ($response->successful()) {
-                return $response->json('text');
-            }
-
-            return "[Voice note unreadable]";
-        } catch (\Exception $e) {
-            Log::error("Whisper API Error: " . $e->getMessage());
-            return "[Error processing voice note]";
-        }
+        return $text ?? '[Error processing voice note]';
     }
 }

@@ -6,6 +6,8 @@ use App\Http\Controllers\AiCompanionController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\ExerciseController;
+use App\Http\Controllers\ExerciseProgressController;
 use App\Http\Controllers\JournalController;
 use App\Http\Controllers\ListenerChatController;
 use App\Http\Controllers\MoodController;
@@ -33,7 +35,7 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware(['auth:sanctum'])->group(function () {
 
-        Route::post('/companion/interact', [AiCompanionController::class, 'interact']);
+        Route::post('/companion/interact', [AiCompanionController::class, 'interact'])->middleware('throttle:companion');
         // Route::get('/mood/daily-vibe', [MoodController::class, 'dailyVibe']);
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
@@ -54,7 +56,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/daily-vibe', 'dailyVibe');
         });
 
-        Route::post('journal/reflection', [JournalController::class, 'generateReflection']);
+        Route::post('journal/reflection', [JournalController::class, 'generateWeeklyReflection']);
         Route::apiResource('journal', JournalController::class);
 
         Route::controller(ChatController::class)->group(function () {
@@ -96,10 +98,18 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::get('/cbt/activities', [ActivityController::class, 'index']);
+        Route::get('/cbt/progress', [ExerciseProgressController::class, 'summary']);
+        Route::get('/cbt/thought-records', [ExerciseProgressController::class, 'thoughtRecords']);
+        Route::post('/cbt/exercises/create-order', [ExerciseController::class, 'createOrder']);
+        Route::post('/cbt/exercises/purchase', [ExerciseController::class, 'purchase']);
     });
 
     Route::middleware(['auth:sanctum', CheckAdminRole::class])->prefix('admin')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard']);
         Route::post('/approve/{id}', [AdminController::class, 'approveUser']);
+        Route::get('/ai-usage', fn(\Illuminate\Http\Request $r) => response()->json([
+            'status' => true,
+            'data' => app(\App\Ai\AiUsageReport::class)->build(min(90, max(1, (int) $r->query('days', 7)))),
+        ]));
     });
 });
