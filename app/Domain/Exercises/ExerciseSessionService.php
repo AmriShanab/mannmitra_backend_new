@@ -42,8 +42,9 @@ class ExerciseSessionService
     public function start($session, $user, string $activityId): array
     {
         $exercise = $this->registry->get($activityId);
-        [$step, $state] = $exercise->start($this->lang($user));
-        $state['mood_before'] = $this->recentMood($user);
+        $mood = $this->recentMood($user);
+        [$step, $state] = $exercise->start($this->lang($user), ['mood' => $mood]);
+        $state['mood_before'] = $mood;
 
         $run = $this->access->activeRun($user, $activityId);
         $run?->update(['state' => $state, 'step' => $step->progress]);

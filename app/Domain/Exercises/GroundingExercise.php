@@ -2,20 +2,17 @@
 
 namespace App\Domain\Exercises;
 
-use App\Ai\PromptRepository;
-use App\Services\AIService;
-use Illuminate\Support\Facades\Log;
-
 /**
- * 5-4-3-2-1 grounding as a fixed sequence. The order is enforced here; the AI only adds an
- * optional one-line reaction per step (mini model) and a canned line replaces it on any failure.
+ * 5-4-3-2-1 grounding as a fixed sequence. The order is enforced here. With EXERCISE_AI_ENABLED
+ * each answer gets a short personalised reaction and the ending refers back to what the user
+ * named; otherwise (or on any AI failure) fixed lines are used.
  */
 class GroundingExercise implements Exercise
 {
     public const ID = 'grounding_01';
+    private const NAME = 'Grounding';
     private const MIN_ANSWER_LENGTH = 2;
 
-    // [count, verb used in the reaction prompt]
     private const SENSES = ['see', 'feel', 'hear', 'smell', 'taste'];
     private const COUNTS = [5, 4, 3, 2, 1];
 
@@ -31,6 +28,7 @@ class GroundingExercise implements Exercise
             'reactions' => ["Thank you for sharing that.", "That's a good one.", "Nice, you're doing great.", "I like that."],
             'retry' => "Take your time. Just type what you notice, a word or two is fine.",
             'done' => "I'm so proud of you for doing this. How are you feeling right now?",
+            'ask' => "How are you feeling right now?",
         ],
         'hi' => [
             'prompts' => [
@@ -43,10 +41,11 @@ class GroundingExercise implements Exercise
             'reactions' => ["Batane ke liye shukriya.", "Yeh accha hai.", "Bahut badhiya, aap accha kar rahe hain.", "Mujhe yeh pasand aaya."],
             'retry' => "Aaram se. Jo mehsoos ho bas likh dijiye, ek-do shabd bhi chalenge.",
             'done' => "Mujhe aap par bahut garv hai. Ab aap kaisa mehsoos kar rahe hain?",
+            'ask' => "Ab aap kaisa mehsoos kar rahe hain?",
         ],
     ];
 
-    public function __construct(protected AIService $ai, protected PromptRepository $prompts)
+    public function __construct(protected ExerciseVoice $voice)
     {
     }
 
@@ -55,12 +54,14 @@ class GroundingExercise implements Exercise
         return self::ID;
     }
 
-    public function start(string $lang): array
+    public function start(string $lang, array $context = []): array
     {
         $t = self::TEXT[$lang] ?? self::TEXT['en'];
-        $state = ['sense' => 0];
 
-        return [new ExerciseStep($t['prompts'][0], 'text_input', [], false, 0, count(self::SENSES)), $state];
+        return [
+            new ExerciseStep($t['prompts'][0], 'text_input', [], false, 0, count(self::SENSES), ['count' => self::COUNTS[0]]),
+            ['sense' => 0, 'answers' => []],
+        ];
     }
 
     public function advance(array $state, string $inputKind, string $text, string $lang): array
@@ -72,17 +73,23 @@ class GroundingExercise implements Exercise
 
         // Tapped a button or sent nothing useful: ask the same question again.
         if ($inputKind !== self::INPUT_TEXT || mb_strlen($text) < self::MIN_ANSWER_LENGTH) {
-            return [new ExerciseStep($t['retry'] . "\n\n" . $t['prompts'][$sense], 'text_input', [], false, $sense, $total), $state];
+            return [new ExerciseStep($t['retry'] . "\n\n" . $t['prompts'][$sense], 'text_input', [], false, $sense, $total, ['count' => self::COUNTS[$sense]]), $state];
         }
 
+        $state['answers'][self::SENSES[$sense]] = mb_substr($text, 0, 300);
         $next = $sense + 1;
         $state['sense'] = $next;
 
         if ($next >= $total) {
-            return [new ExerciseStep($t['done'], 'emoji_slider', [], true, $total, $total), $state];
+            $close = $this->voice->line('grounding_close', self::NAME, $this->summary($state['answers']), $lang);
+            $message = $close ? $close . "\n\n" . $t['ask'] : $t['done'];
+
+            return [new ExerciseStep($message, 'emoji_slider', [], true, $total, $total), $state];
         }
 
-        $reaction = $this->react(self::SENSES[$sense], $text, $lang, $t['reactions'], $sense);
+        $reaction = $this->voice->line('grounding_react', self::NAME,
+            sprintf('They just listed %d things they can %s: "%s"', self::COUNTS[$sense], strtoupper(self::SENSES[$sense]), mb_substr($text, 0, 300)), $lang)
+            ?? $t['reactions'][$sense % count($t['reactions'])];
 
         return [
             new ExerciseStep($reaction . "\n\n" . $t['prompts'][$next], 'text_input', [], false, $next, $total, ['count' => self::COUNTS[$next]]),
@@ -90,23 +97,13 @@ class GroundingExercise implements Exercise
         ];
     }
 
-    private function react(string $sense, string $answer, string $lang, array $canned, int $index): string
+    /** What the user named across the senses, for the closing line. */
+    private function summary(array $answers): string
     {
-        try {
-            $system = $this->prompts->render('grounding_reaction', [
-                'sense_verb' => $sense,
-                'language' => PromptRepository::languageName($lang),
-            ]);
-            $data = $this->ai->getMiniCompletion($system, 'User said: "' . mb_substr($answer, 0, 300) . '"', 'exercise.grounding.reaction', 60);
-            $reaction = trim((string) ($data['reaction'] ?? ''));
-
-            if ($reaction !== '' && mb_strlen($reaction) <= 160) {
-                return $reaction;
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Grounding reaction failed, using canned line: ' . $e->getMessage());
+        $parts = [];
+        foreach ($answers as $sense => $said) {
+            $parts[] = "$sense: $said";
         }
-
-        return $canned[$index % count($canned)];
+        return 'Across their senses they noticed: ' . implode('; ', $parts) . '.';
     }
 }

@@ -24,14 +24,14 @@ class AiClient
      *
      * @param string $feature label for usage logs, e.g. "companion.venting"
      */
-    public function chatJson(string $feature, string $systemPrompt, string $userInstruction, string $tier = self::TIER_CHAT, float $temperature = 0.7, ?int $maxTokens = null): array
+    public function chatJson(string $feature, string $systemPrompt, string $userInstruction, string $tier = self::TIER_CHAT, float $temperature = 0.7, ?int $maxTokens = null, ?int $timeout = null): array
     {
         $model = config("openai.models.$tier");
         $started = microtime(true);
         $httpStatus = null;
 
         try {
-            $response = $this->http(config('openai.request_timeout', 30))
+            $response = $this->http($timeout ?? config('openai.request_timeout', 30))
                 ->post(self::BASE_URL . '/chat/completions', [
                     'model' => $model,
                     'response_format' => ['type' => 'json_object'],

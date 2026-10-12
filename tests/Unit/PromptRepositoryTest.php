@@ -14,6 +14,10 @@ class PromptRepositoryTest extends TestCase
             'recent_messages' => 'User: hi',
             'recent_moods' => 'No recent mood data.',
             'sense_verb' => 'see',
+            'exercise' => 'Breathing',
+            'task' => 'Do a thing.',
+            'length' => 'one sentence',
+            'context' => 'Mood unknown.',
         ];
 
         $files = glob(resource_path('prompts/*.txt'));

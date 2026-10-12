@@ -103,12 +103,17 @@ class ReframingAndProgressTest extends TestCase
 
     public function test_reframing_completes_saves_an_encrypted_thought_record_and_consumes_one_session(): void
     {
+        // Naming the thinking pattern is an AI feature: needs the exercise AI switch on.
+        config(['openai.exercise_ai.enabled' => true]);
+        $this->app->bind(\App\Ai\AiClient::class, \Tests\Support\FakeAiClient::class);
+        \Tests\Support\FakeAiClient::reset();
+
         $r = $this->runReframing('rf_int_3');
 
         $this->assertSame('emoji_slider', $r['ui_mode']);
         $this->assertTrue($r['exercise_completed']);
         $this->assertSame(4, $r['sessions_left']);
-        $this->assertStringContainsString('real shift', $r['ai_message']);
+        $this->assertStringContainsString('AI:exercise.voice.reframing_close', $r['ai_message']);
 
         $rec = ThoughtRecord::first();
         $this->assertSame('I am going to get fired', $rec->automatic_thought);

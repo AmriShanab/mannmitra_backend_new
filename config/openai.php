@@ -78,6 +78,15 @@ return [
         'whisper-1' => ['in' => 0.0, 'out' => 0.0],
     ],
 
+    // Optional AI wording inside exercises. Off = fixed text only (no OpenAI calls at all).
+    // On = short personalised lines that react to what the user typed; any failure falls back
+    // to the fixed text, and a failure pauses the AI for `breaker_seconds`.
+    'exercise_ai' => [
+        'enabled' => (bool) env('EXERCISE_AI_ENABLED', false),
+        'timeout' => (int) env('EXERCISE_AI_TIMEOUT', 8),
+        'breaker_seconds' => (int) env('EXERCISE_AI_BREAKER_SECONDS', 60),
+    ],
+
     // Server-tracked exercise state machines (breathing, grounding). Set false to fall
     // back to the legacy LLM-driven exercise prompts.
     'exercise_state_machine' => (bool) env('EXERCISES_STATE_MACHINE', true),
