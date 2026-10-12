@@ -3,6 +3,7 @@
 namespace App\Domain\Exercises;
 
 use App\Models\ExerciseRun;
+use App\Models\GratitudeEntry;
 use App\Models\ThoughtRecord;
 use Carbon\Carbon;
 
@@ -36,6 +37,11 @@ class ExerciseProgressService
     public function thoughtRecords($user, int $limit = 20)
     {
         return ThoughtRecord::where('user_id', $user->id)->latest()->limit($limit)->get();
+    }
+
+    public function gratitudeEntries($user, int $limit = 30)
+    {
+        return GratitudeEntry::where('user_id', $user->id)->orderByDesc('entry_date')->orderByDesc('id')->limit($limit)->get();
     }
 
     /** Consecutive days ending today (or yesterday, so an unfinished today keeps the streak). */

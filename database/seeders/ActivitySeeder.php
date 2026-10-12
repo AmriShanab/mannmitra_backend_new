@@ -59,6 +59,17 @@ class ActivitySeeder extends Seeder
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ],
+            [
+                'activity_id' => 'gratitude_01',
+                'title' => 'Gratitude Journal',
+                'translations' => json_encode(['hi' => ['title' => 'आभार डायरी', 'description' => 'आज की 3 अच्छी बातें लिखें। हम उन्हें सहेजकर बाद में आपको दिखाएँगे।']]),
+                'description' => 'Note 3 good things from today. We save them and show them back to you later.',
+                'duration' => '3 MIN',
+                'icon_name' => 'sunny',
+                'color_hex' => 'FFC857',
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ],
         ];
 
         // 2. Clear the table first so we don't get duplicates if you run it twice

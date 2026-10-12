@@ -63,7 +63,7 @@ class ButterflyHugExercise implements Exercise
         ];
     }
 
-    public function advance(array $state, string $inputKind, string $text, string $lang): array
+    public function advance(array $state, string $inputKind, string $text, string $lang, array $context = []): array
     {
         $t = $this->t($lang);
         $phase = $state['phase'] ?? 'intro';

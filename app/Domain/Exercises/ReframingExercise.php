@@ -82,7 +82,7 @@ class ReframingExercise implements Exercise, ProducesRecord
         return [new ExerciseStep($t['situation'], 'text_input', [], false, 0, self::TOTAL), ['step' => self::STEP_SITUATION]];
     }
 
-    public function advance(array $state, string $inputKind, string $text, string $lang): array
+    public function advance(array $state, string $inputKind, string $text, string $lang, array $context = []): array
     {
         $t = $this->t($lang);
         $step = (int) ($state['step'] ?? self::STEP_SITUATION);
@@ -108,6 +108,11 @@ class ReframingExercise implements Exercise, ProducesRecord
                     $t['intensity_after']), $lang, $this->levelOptions($t)),
             default => $this->finish($state, $inputKind, $text, $lang),
         };
+    }
+
+    public function recordModel(): string
+    {
+        return \App\Models\ThoughtRecord::class;
     }
 
     public function toRecord(array $state): ?array

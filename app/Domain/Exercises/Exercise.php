@@ -19,5 +19,5 @@ interface Exercise
     public function start(string $lang, array $context = []): array; // context: ['mood' => ?int]
 
     /** @return array{0: ExerciseStep, 1: array} */
-    public function advance(array $state, string $inputKind, string $text, string $lang): array;
+    public function advance(array $state, string $inputKind, string $text, string $lang, array $context = []): array;
 }

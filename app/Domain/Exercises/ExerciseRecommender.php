@@ -51,6 +51,11 @@ class ExerciseRecommender
             return BreathingExercise::ID;
         }
 
+        // Early evening is the natural time to look back on the day.
+        if ($hour >= 17 && $hour < 21 && $has(GratitudeExercise::ID) && !$doneToday(GratitudeExercise::ID)) {
+            return GratitudeExercise::ID;
+        }
+
         // Never done first, then oldest completion.
         usort($activityIds, fn($a, $b) => strcmp((string) ($lastDone[$a] ?? ''), (string) ($lastDone[$b] ?? '')));
 

@@ -4,7 +4,6 @@ namespace App\Domain\Exercises;
 
 use App\Models\ExerciseRun;
 use App\Models\MoodEntry;
-use App\Models\ThoughtRecord;
 use App\Repositories\CompanionRepository;
 use App\Services\ExerciseAccessService;
 
@@ -63,7 +62,7 @@ class ExerciseSessionService
             return $this->start($session, $user, $run->activity_id);
         }
 
-        [$step, $state] = $exercise->advance($run->state, $inputKind, $text, $this->lang($user));
+        [$step, $state] = $exercise->advance($run->state, $inputKind, $text, $this->lang($user), ['user_id' => $user->id]);
         $run->update(['state' => $state, 'step' => $step->progress]);
 
         $node = $this->emit($session, $user, $step, $run);
@@ -140,7 +139,7 @@ class ExerciseSessionService
 
         $record = $exercise->toRecord($state);
         if ($record) {
-            ThoughtRecord::create($record + ['user_id' => $user->id, 'exercise_run_id' => $run->id]);
+            $exercise->recordModel()::create($record + ['user_id' => $user->id, 'exercise_run_id' => $run->id]);
         }
     }
 

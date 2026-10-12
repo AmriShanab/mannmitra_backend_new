@@ -100,6 +100,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/cbt/activities', [ActivityController::class, 'index']);
         Route::get('/cbt/progress', [ExerciseProgressController::class, 'summary']);
         Route::get('/cbt/thought-records', [ExerciseProgressController::class, 'thoughtRecords']);
+        Route::get('/cbt/gratitude', [ExerciseProgressController::class, 'gratitude']);
         Route::post('/cbt/exercises/create-order', [ExerciseController::class, 'createOrder']);
         Route::post('/cbt/exercises/purchase', [ExerciseController::class, 'purchase']);
     });

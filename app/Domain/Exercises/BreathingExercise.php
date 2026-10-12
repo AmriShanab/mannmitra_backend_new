@@ -65,7 +65,7 @@ class BreathingExercise implements Exercise
         ];
     }
 
-    public function advance(array $state, string $inputKind, string $text, string $lang): array
+    public function advance(array $state, string $inputKind, string $text, string $lang, array $context = []): array
     {
         $t = self::TEXT[$lang] ?? self::TEXT['en'];
         $cycle = (int) ($state['cycle'] ?? 0);
