@@ -46,6 +46,12 @@ class ExerciseRecommender
             }
         }
 
+        // A weekly goal that is due for a check-in comes first.
+        if ($has(ValuesGoalExercise::ID) && !$doneToday(ValuesGoalExercise::ID)
+            && app(\App\Services\GoalService::class)->dueForCheckIn($user->id)) {
+            return ValuesGoalExercise::ID;
+        }
+
         $hour = (int) now()->format('G');
         if ($hour >= 21 || $hour < 5) {
             if ($has(SleepWinddownExercise::ID) && !$doneToday(SleepWinddownExercise::ID)) {

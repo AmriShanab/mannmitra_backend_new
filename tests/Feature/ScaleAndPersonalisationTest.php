@@ -159,7 +159,7 @@ class ScaleAndPersonalisationTest extends TestCase
 
         $this->assertTrue(Cache::has(ActivityService::CACHE_KEY));
         Activities::query()->delete();
-        $this->assertCount(6, $this->catalog(), 'served from cache after the table changes');
+        $this->assertCount(7, $this->catalog(), 'served from cache after the table changes');
 
         (new ActivitySeeder)->run(); // reseeding clears the cache
         $this->assertFalse(Cache::has(ActivityService::CACHE_KEY));

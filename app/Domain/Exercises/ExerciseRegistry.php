@@ -15,6 +15,7 @@ class ExerciseRegistry
         ButterflyHugExercise::ID => ButterflyHugExercise::class,
         GratitudeExercise::ID => GratitudeExercise::class,
         SleepWinddownExercise::ID => SleepWinddownExercise::class,
+        ValuesGoalExercise::ID => ValuesGoalExercise::class,
     ];
 
     public function has(string $activityId): bool

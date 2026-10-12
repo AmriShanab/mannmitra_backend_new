@@ -32,6 +32,8 @@ class ExerciseVoice
         'gratitude_close' => ['Warmly point out how much good they noticed today. If an earlier entry is given, gently connect today to it without listing it again. Be sincere, not over the top.', 'one or two short sentences (max 40 words)'],
         'sleep_react' => ['React with gentle empathy to how they said they slept last night, and say you will help them wind down tonight.', 'one short sentence (max 22 words)'],
         'sleep_close' => ['Wish them a restful night warmly and calmly. If they set up helpful habits, appreciate that without lecturing.', 'one or two short sentences (max 30 words)'],
+        'goal_react' => ['Acknowledge, with warmth, the core values they chose and what they say about what matters to them.', 'one short sentence (max 22 words)'],
+        'goal_close' => ['Encourage them warmly about the small goal they set for the week, tying it to their values. If they made it smaller, praise that as wise. Do not add new tasks.', 'one or two short sentences (max 35 words)'],
         'reframing_situation' => ['Acknowledge the situation they described with empathy.', 'one short sentence (max 20 words)'],
         'reframing_evidence' => ['Acknowledge the evidence they found against the upsetting thought, and say that it counts.', 'one short sentence (max 25 words)'],
         'reframing_balanced' => ['Appreciate the fairer thought they wrote and how it differs from the original upsetting thought.', 'one short sentence (max 25 words)'],

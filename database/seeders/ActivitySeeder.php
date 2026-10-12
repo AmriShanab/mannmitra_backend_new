@@ -81,6 +81,17 @@ class ActivitySeeder extends Seeder
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ],
+            [
+                'activity_id' => 'values_goal_01',
+                'title' => 'Values & Goals',
+                'translations' => json_encode(['hi' => ['title' => 'मूल्य और लक्ष्य', 'description' => 'अपने मूल्य चुनें, उन्हें एक छोटे साप्ताहिक लक्ष्य में बदलें, और प्रगति पर चेक-इन करें।']]),
+                'description' => 'Pick what matters most, turn it into one small weekly goal, and check in on your progress.',
+                'duration' => '5 MIN',
+                'icon_name' => 'flag',
+                'color_hex' => '4CB8A6',
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ],
         ];
 
         // 2. Clear the table first so we don't get duplicates if you run it twice
