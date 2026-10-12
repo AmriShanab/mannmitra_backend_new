@@ -42,7 +42,7 @@ class ExerciseSessionService
     {
         $exercise = $this->registry->get($activityId);
         $mood = $this->recentMood($user);
-        [$step, $state] = $exercise->start($this->lang($user), ['mood' => $mood]);
+        [$step, $state] = $exercise->start($this->lang($user), ['mood' => $mood, 'user_id' => $user->id]);
         $state['mood_before'] = $mood;
 
         $run = $this->access->activeRun($user, $activityId);
@@ -139,7 +139,7 @@ class ExerciseSessionService
 
         $record = $exercise->toRecord($state);
         if ($record) {
-            $exercise->recordModel()::create($record + ['user_id' => $user->id, 'exercise_run_id' => $run->id]);
+            $exercise->saveRecord($user->id, $run->id, $record);
         }
     }
 

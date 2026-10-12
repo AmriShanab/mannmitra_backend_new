@@ -70,6 +70,17 @@ class ActivitySeeder extends Seeder
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ],
+            [
+                'activity_id' => 'sleep_winddown_01',
+                'title' => 'Sleep Wind-down',
+                'translations' => json_encode(['hi' => ['title' => 'नींद की तैयारी', 'description' => 'चेकलिस्ट, बॉडी स्कैन या नींद की कहानी, और एक आसान स्लीप लॉग।']]),
+                'description' => 'A short checklist, a body scan or sleep story, and a simple sleep log.',
+                'duration' => '8 MIN',
+                'icon_name' => 'bedtime',
+                'color_hex' => '7C83FD',
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ],
         ];
 
         // 2. Clear the table first so we don't get duplicates if you run it twice

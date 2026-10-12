@@ -30,6 +30,8 @@ class ExerciseVoice
         'grounding_close' => ['Close the grounding exercise by warmly acknowledging what they noticed across their senses.', 'one or two short sentences (max 40 words)'],
         'gratitude_react' => ['React warmly to the specific good thing they just named, like a friend who is glad for them.', 'one short sentence (max 20 words)'],
         'gratitude_close' => ['Warmly point out how much good they noticed today. If an earlier entry is given, gently connect today to it without listing it again. Be sincere, not over the top.', 'one or two short sentences (max 40 words)'],
+        'sleep_react' => ['React with gentle empathy to how they said they slept last night, and say you will help them wind down tonight.', 'one short sentence (max 22 words)'],
+        'sleep_close' => ['Wish them a restful night warmly and calmly. If they set up helpful habits, appreciate that without lecturing.', 'one or two short sentences (max 30 words)'],
         'reframing_situation' => ['Acknowledge the situation they described with empathy.', 'one short sentence (max 20 words)'],
         'reframing_evidence' => ['Acknowledge the evidence they found against the upsetting thought, and say that it counts.', 'one short sentence (max 25 words)'],
         'reframing_balanced' => ['Appreciate the fairer thought they wrote and how it differs from the original upsetting thought.', 'one short sentence (max 25 words)'],

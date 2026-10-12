@@ -13,6 +13,7 @@ use App\Http\Controllers\ListenerChatController;
 use App\Http\Controllers\MoodController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RealtimeController;
+use App\Http\Controllers\SleepLogController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UserController;
@@ -101,6 +102,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/cbt/progress', [ExerciseProgressController::class, 'summary']);
         Route::get('/cbt/thought-records', [ExerciseProgressController::class, 'thoughtRecords']);
         Route::get('/cbt/gratitude', [ExerciseProgressController::class, 'gratitude']);
+        Route::get('/sleep/logs', [SleepLogController::class, 'index']);
+        Route::post('/sleep/logs', [SleepLogController::class, 'store']);
         Route::post('/cbt/exercises/create-order', [ExerciseController::class, 'createOrder']);
         Route::post('/cbt/exercises/purchase', [ExerciseController::class, 'purchase']);
     });

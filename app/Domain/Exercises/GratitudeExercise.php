@@ -64,9 +64,9 @@ class GratitudeExercise implements Exercise, ProducesRecord
         return self::ID;
     }
 
-    public function recordModel(): string
+    public function saveRecord(int $userId, int $runId, array $record): void
     {
-        return GratitudeEntry::class;
+        GratitudeEntry::create($record + ['user_id' => $userId, 'exercise_run_id' => $runId]);
     }
 
     public function start(string $lang, array $context = []): array

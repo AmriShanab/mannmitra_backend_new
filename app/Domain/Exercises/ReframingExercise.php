@@ -110,9 +110,9 @@ class ReframingExercise implements Exercise, ProducesRecord
         };
     }
 
-    public function recordModel(): string
+    public function saveRecord(int $userId, int $runId, array $record): void
     {
-        return \App\Models\ThoughtRecord::class;
+        \App\Models\ThoughtRecord::create($record + ['user_id' => $userId, 'exercise_run_id' => $runId]);
     }
 
     public function toRecord(array $state): ?array

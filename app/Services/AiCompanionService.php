@@ -85,9 +85,9 @@ class AiCompanionService
 
             case 'buttons':
                 // Distress-level choices inside a managed exercise (e.g. reframing).
-                if (str_starts_with((string) $inputValue, 'rf_int_')
+                if ((str_starts_with((string) $inputValue, 'rf_int_') || str_starts_with((string) $inputValue, 'sleep_'))
                     && ($managedRun = $this->exercises->activeManagedRun($user))) {
-                    $this->repo->createMessage($session->id, 'user', 'text', "[User selected: $inputValue]");
+                    $this->repo->createMessage($session->id, 'user', 'text', '[User selected: ' . mb_substr((string) $inputValue, 0, 120) . ']');
                     return $this->exercises->advance($session, $user, $managedRun, Exercise::INPUT_CHOICE, $inputValue);
                 }
 

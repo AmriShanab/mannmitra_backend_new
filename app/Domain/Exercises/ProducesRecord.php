@@ -7,9 +7,9 @@ namespace App\Domain\Exercises;
  */
 interface ProducesRecord
 {
-    /** Eloquent model class the record is stored in (it gets user_id and exercise_run_id added). */
-    public function recordModel(): string;
-
-    /** Fields for that model, or null when the state is incomplete. */
+    /** The fields worth saving, or null when the state is incomplete. */
     public function toRecord(array $state): ?array;
+
+    /** Stores what toRecord() returned for this user and run. */
+    public function saveRecord(int $userId, int $runId, array $record): void;
 }

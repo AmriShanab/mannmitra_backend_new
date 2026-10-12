@@ -47,8 +47,13 @@ class ExerciseRecommender
         }
 
         $hour = (int) now()->format('G');
-        if (($hour >= 21 || $hour < 5) && $has(BreathingExercise::ID) && !$doneToday(BreathingExercise::ID)) {
-            return BreathingExercise::ID;
+        if ($hour >= 21 || $hour < 5) {
+            if ($has(SleepWinddownExercise::ID) && !$doneToday(SleepWinddownExercise::ID)) {
+                return SleepWinddownExercise::ID;
+            }
+            if ($has(BreathingExercise::ID) && !$doneToday(BreathingExercise::ID)) {
+                return BreathingExercise::ID;
+            }
         }
 
         // Early evening is the natural time to look back on the day.
