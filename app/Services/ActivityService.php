@@ -6,6 +6,7 @@ use App\Domain\Exercises\ExerciseRecommender;
 use App\Models\Activities;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use App\Support\Language;
 
 class ActivityService
 {
@@ -38,7 +39,7 @@ class ActivityService
         $recommended = $this->recommender->pick($user, array_column($rows, 'activity_id'));
 
         return array_map(function ($row) use ($access, $lang, $recommended) {
-            $t = $row['translations'][$lang] ?? null;
+            $t = $row['translations'][Language::normalize($lang)] ?? $row['translations'][Language::exerciseLang($lang)] ?? null;
             if ($t) {
                 $row['title'] = $t['title'] ?? $row['title'];
                 $row['description'] = $t['description'] ?? $row['description'];

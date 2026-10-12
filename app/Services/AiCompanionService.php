@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Repositories\CompanionRepository;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use App\Support\Language;
 
 class AiCompanionService
 {
@@ -69,7 +70,7 @@ class AiCompanionService
 
             case 'voice_record':
                 if ($audioFile) {
-                    $transcribedText = $this->openAi->transcribeAudio($audioFile, $user->language);
+                    $transcribedText = $this->openAi->transcribeAudio($audioFile, Language::speechCode($user->language));
                     $this->repo->createJournalEntry($user->id, $transcribedText, $audioPath);
                     $userMessageContent = $transcribedText;
                     $audioPath = null;
@@ -213,10 +214,7 @@ class AiCompanionService
 
     private function handleDayOneOnboarding($session, $user)
     {
-        $welcomeText = "Hi {$user->name}, I'm Mann Mitra. I'm here to listen, without any judgment. How are you feeling right now?";
-        if ($user->language === 'hi') {
-            $welcomeText = "Namaste {$user->name}, main Mann Mitra hoon. Main yahan sirf aapko sunne ke liye hoon, bina kisi judgment ke. Abhi aap kaisa mehsoos kar rahe hain?";
-        }
+        $welcomeText = Language::text('companion.welcome', $user->language, ['name' => $user->name]);
         $this->repo->createMessage($session->id, 'ai', 'text', $welcomeText);
         return ['node_id' => 'msg_welcome_1', 'ai_message' => $welcomeText, 'ui_mode' => 'emoji_slider', 'options' => []];
     }
@@ -238,10 +236,7 @@ class AiCompanionService
 
     private function handleDailyMoodCheckin($session, $user)
     {
-        $welcomeText = "Hi {$user->name}! Welcome back. How are you feeling today?";
-        if ($user->language === 'hi') {
-            $welcomeText = "Namaste {$user->name}! Aaj aap kaisa mehsoos kar rahe hain?";
-        }
+        $welcomeText = Language::text('companion.daily_checkin', $user->language, ['name' => $user->name]);
         $this->repo->createMessage($session->id, 'ai', 'text', $welcomeText);
         return ['node_id' => 'msg_daily_mood_' . time(), 'ai_message' => $welcomeText, 'ui_mode' => 'emoji_slider', 'options' => []];
     }
@@ -260,11 +255,11 @@ class AiCompanionService
             return $this->exercises->start($session, $user, $activityId);
         }
 
-        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+        $languageName = Language::promptName($user->language);
 
         if ($activityId === 'breathing_01') {
             $aiMessage = "Welcome to the Breathing Exercise. Let's begin by taking a deep breath in...";
-            if ($user->language === 'hi') {
+            if (Language::exerciseLang($user->language) === 'hi') {
                 $aiMessage = "Swagat hai. Chaliye ek gehri saans lene se shuru karte hain...";
             }
             $uiMode = 'breathing_animation';
@@ -272,14 +267,14 @@ class AiCompanionService
             $options = [['id' => 'cbt_ready_breathing_01', 'label' => "I'm ready"]];
         } elseif ($activityId === 'grounding_01') {
             $aiMessage = "Let's do a quick grounding exercise together. Look around the room and type out 3 things you can see right now.";
-            if ($user->language === 'hi') {
+            if (Language::exerciseLang($user->language) === 'hi') {
                 $aiMessage = "Chaliye grounding exercise karte hain. Apne aas-paas dekhiye aur 3 cheezein bataiye jo aap dekh sakte hain.";
             }
             $uiMode = 'text_input';
             $options = [];
         } else {
             $aiMessage = "Welcome to Reframing. Let's work through your thoughts together. What is a negative thought you've been having recently?";
-            if ($user->language === 'hi') {
+            if (Language::exerciseLang($user->language) === 'hi') {
                 $aiMessage = "Chaliye aapki pareshaniyo par baat karte hain. Aapke dimaag mein kya chal raha hai?";
             }
             $uiMode = 'text_input';
@@ -300,7 +295,7 @@ class AiCompanionService
     {
         // This is the new centralized AI Engine that conducts the exercises!
         $recentMessages = $this->repo->getRecentMessages($session->id);
-        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+        $languageName = Language::promptName($user->language);
 
         if ($activityId === 'breathing_01' || $activityId === 'cbt_breathing') {
             Log::info("User is in Breathing Exercise. Recent Messages: " . $recentMessages);
@@ -373,9 +368,7 @@ class AiCompanionService
 
     private function budgetExhaustedNode($session, $user)
     {
-        $message = ($user->language === 'hi')
-            ? "Aaj ke liye hamari baat ki limit poori ho gayi hai, kal phir milte hain. Aap abhi bhi mood log kar sakte hain ya journal likh sakte hain. Agar aap mushkil mein hain, to iCall (9152987821) ya AASRA (9820466726) par abhi call kijiye."
-            : "We've reached today's chat limit, and I'll be back tomorrow. You can still log your mood or write in your journal. If you're struggling right now, please call iCall (9152987821) or AASRA (9820466726).";
+        $message = Language::text('companion.budget_exhausted', $user->language);
 
         $this->repo->createMessage($session->id, 'ai', 'text', $message);
 
@@ -390,9 +383,10 @@ class AiCompanionService
     private function paymentRequiredNode($session, $user, $activityId)
     {
         $price = $this->exerciseAccess->pricing();
-        $message = ($user->language === 'hi')
-            ? "Is exercise ke {$price['sessions']} sessions unlock karne ke liye ₹{$price['amount']} ka payment karein."
-            : "Unlock {$price['sessions']} sessions of this exercise for ₹{$price['amount']} to continue.";
+        $message = Language::text('companion.payment_required', $user->language, [
+            'sessions' => $price['sessions'],
+            'amount' => $price['amount'],
+        ]);
 
         $this->repo->createMessage($session->id, 'ai', 'text', $message);
 
@@ -417,7 +411,7 @@ class AiCompanionService
     {
         $this->repo->flagLatestMessageAsCrisis($session->id);
         $this->repo->createCrisisAlert($session->id, 'AI Triage Detected Crisis');
-        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+        $languageName = Language::promptName($user->language);
 
         $systemPrompt = $this->prompts->render('crisis', ['language' => $languageName]);
         return $this->executeAiRoute(
@@ -425,9 +419,7 @@ class AiCompanionService
             $systemPrompt,
             "User's message: " . $userMessageContent,
             ['ui_mode' => 'crisis_cards', 'options' => self::CRISIS_OPTIONS],
-            ($user->language === 'hi')
-                ? 'Aap akele nahi hain. Please abhi in helplines par baat kijiye, main yahin hoon.'
-                : "You're not alone. Please reach out to one of these helplines right now. I'm here with you.",
+            Language::text('companion.crisis_fallback', $user->language),
             'companion.crisis'
         );
     }
@@ -435,7 +427,7 @@ class AiCompanionService
     private function handleHappyRoute($session, $user, $inputType, $userMessageContent)
     {
         $recentMessages = $this->repo->getRecentMessages($session->id);
-        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+        $languageName = Language::promptName($user->language);
 
         $systemPrompt = $this->prompts->render('happy', ['language' => $languageName, 'recent_messages' => $recentMessages]);
 
@@ -445,7 +437,7 @@ class AiCompanionService
 
     private function handleJournalingRoute($session, $user, $inputType, $userMessageContent)
     {
-        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+        $languageName = Language::promptName($user->language);
         $systemPrompt = $this->prompts->render('journaling', ['language' => $languageName]);
 
         return $this->executeAiRoute($session, $systemPrompt, "User's message: " . $userMessageContent);
@@ -454,7 +446,7 @@ class AiCompanionService
     private function handleDistractionRoute($session, $user, $inputType, $userMessageContent)
     {
         $recentMessages = $this->repo->getRecentMessages($session->id);
-        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+        $languageName = Language::promptName($user->language);
 
         $systemPrompt = $this->prompts->render('distraction', ['recent_messages' => $recentMessages]);
 
@@ -465,7 +457,7 @@ class AiCompanionService
     {
         $recentMessages = $this->repo->getRecentMessages($session->id);
         $recentMoods = $this->repo->getRecentMoods($user->id);
-        $languageName = ($user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+        $languageName = Language::promptName($user->language);
 
         $systemPrompt = $this->prompts->render('venting', ['language' => $languageName, 'recent_moods' => $recentMoods, 'recent_messages' => $recentMessages]);
 
@@ -492,7 +484,7 @@ class AiCompanionService
             ];
         } catch (\Exception $e) {
             Log::error("AI Route Error: " . $e->getMessage());
-            $message = $fallbackMessage ?? 'I am here with you, but my connection is a bit slow right now. You can keep typing if you want.';
+            $message = $fallbackMessage ?? Language::text('companion.connection_slow', $session->user?->language);
             $this->repo->createMessage($session->id, 'ai', 'text', $message);
             return [
                 'node_id' => 'msg_error_fallback',

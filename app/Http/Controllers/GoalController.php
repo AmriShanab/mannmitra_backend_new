@@ -6,6 +6,7 @@ use App\Models\UserGoal;
 use App\Services\GoalService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
+use App\Support\Language;
 
 /** Viewing the weekly goal and checking in on it is free; only the guided exercise is paid. */
 class GoalController extends Controller
@@ -37,6 +38,6 @@ class GoalController extends Controller
 
     private function lang(Request $request): string
     {
-        return $request->user()->language === 'hi' ? 'hi' : 'en';
+        return Language::exerciseLang($request->user()->language);
     }
 }

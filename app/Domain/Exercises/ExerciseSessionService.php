@@ -6,6 +6,7 @@ use App\Models\ExerciseRun;
 use App\Models\MoodEntry;
 use App\Repositories\CompanionRepository;
 use App\Services\ExerciseAccessService;
+use App\Support\Language;
 
 /**
  * Runs state-machine exercises: starts them, advances the stored state, and completes the run
@@ -101,14 +102,7 @@ class ExerciseSessionService
         $run->update(['state' => $state]);
 
         $low = is_numeric($score) && (int) $score <= 4;
-        $hi = $this->lang($user) === 'hi';
-
-        $message = match (true) {
-            $low && $hi => "Shukriya batane ke liye. Kabhi kabhi mann bhaari rehta hai, aur woh bhi theek hai. Aapne aaj apne liye waqt nikala. Kya aap batana chahenge ki dimaag mein kya chal raha hai?",
-            $low => "Thank you for sharing that. It's okay to still feel heavy sometimes. You took time for yourself today. Would you like to tell me what's on your mind?",
-            $hi => "Yeh sunke accha laga. Aapne aaj apne liye accha kiya. Ab aap kis baare mein baat karna chahenge?",
-            default => "I'm glad to hear that. You did something good for yourself today. What would you like to talk about next?",
-        };
+        $message = Language::text($low ? 'companion.wrapup_low' : 'companion.wrapup_ok', $user->language);
 
         $this->repo->createMessage($session->id, 'ai', 'text', $message);
 
@@ -163,6 +157,7 @@ class ExerciseSessionService
 
     private function lang($user): string
     {
-        return $user->language === 'hi' ? 'hi' : 'en';
+        // The exercise scripts exist in English and Hinglish; see Language::exerciseLang.
+        return Language::exerciseLang($user->language);
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Ai;
+use App\Support\Language;
 
 /**
  * Loads prompt templates from resources/prompts/{name}.txt and fills {{placeholders}}.
@@ -25,6 +26,6 @@ class PromptRepository
 
     public static function languageName(?string $code): string
     {
-        return $code === 'hi' ? 'conversational Hinglish (Latin script)' : 'English';
+        return Language::promptName($code);
     }
 }

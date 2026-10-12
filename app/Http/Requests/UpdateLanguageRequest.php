@@ -6,6 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Traits\ApiResponse;
+use App\Support\Language;
 
 class UpdateLanguageRequest extends FormRequest
 {
@@ -19,8 +20,12 @@ class UpdateLanguageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Validate it's a 2-character code (ISO 639-1) or allow longer like 'en-US'
-            'languageCode' => 'required|string|min:2|max:10', 
+            // One of the app languages (Language::SUPPORTED); ISO aliases like 'bn' are accepted.
+            'languageCode' => ['required', 'string', function ($attribute, $value, $fail) {
+                if (!Language::isSupported($value)) {
+                    $fail('Unsupported language.');
+                }
+            }],
         ];
     }
 

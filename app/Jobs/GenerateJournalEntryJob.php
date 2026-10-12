@@ -14,6 +14,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Auth;
+use App\Support\Language;
 
 /**
  * Writes one auto-generated journal entry (daily or weekly) for one user from their chats.
@@ -66,7 +67,7 @@ class GenerateJournalEntryJob implements ShouldQueue
             : null;
         $moodText = $todayMood ? "Today's mood: {$todayMood->primary_mood}/10" : 'No mood logged today.';
 
-        $language = ($this->user->language === 'hi') ? 'Hindi (Latin script/Hinglish)' : 'English';
+        $language = Language::promptName($this->user->language);
         $span = $daily ? "day" : "week";
         $opening = $daily ? 'Today, I felt...' : 'This week, I felt...';
         $sentence = $daily ? "the user's day based on their text messages and mood score" : "the user's week based on their chat history";

@@ -27,7 +27,7 @@ class GuestLoginRequest extends FormRequest
     {
         return [
             'fcmToken' => 'nullable|string',
-            'languageCode' => 'nullable|string|size:2',
+            'languageCode' => 'nullable|string|max:10', // unknown codes are stored as English
             'session_type' => ['nullable', 'in:text, voice, video'],
         ];
     }

@@ -13,6 +13,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
+use App\Support\Language;
 
 class SendReengagementPushJob implements ShouldQueue
 {
@@ -34,16 +35,7 @@ class SendReengagementPushJob implements ShouldQueue
      */
     public function handle(NotificationService $notificationService, AIService $openAi, CompanionRepository $repo): void
     {
-        $fallbackEn = [
-            ["title" => "We miss you! 💙", "body" => "It's been a week since we last chatted. How have you been?"],
-            ["title" => "Thinking of you", "body" => "Your AI companion is here whenever you're ready to talk. Come say hi!"]
-        ];
-        $fallbackHi = [
-            ["title" => "हमें आपकी याद आ रही है! 💙", "body" => "हमारी आखिरी बात को एक हफ्ता हो गया है। आप कैसे हैं?"],
-            ["title" => "आपके बारे में सोच रहे हैं", "body" => "आपका एआई साथी यहाँ है। जब भी आप बात करना चाहें, आएं!"]
-        ];
-
-        $languageName = ($this->user->language == 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+        $languageName = Language::promptName($this->user->language);
 
         $session = $repo->getActiveSession($this->user->id);
         $recentMessages = $repo->getRecentMessages($session->id, 4);
@@ -75,7 +67,7 @@ class SendReengagementPushJob implements ShouldQueue
             }
         } catch (\Exception $e) {
             Log::warning("AI generation failed for re-engagement push. Using fallback. Error: " . $e->getMessage());
-            $pool = ($this->user->language == 'hi') ? $fallbackHi : $fallbackEn;
+            $pool = Language::lines('push.reengagement', $this->user->language);
             $fallBackMsg = Arr::random($pool);
             $title = $fallBackMsg['title'];
             $body = $fallBackMsg['body'];

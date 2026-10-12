@@ -12,6 +12,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use App\Support\Language;
 
 class SendAppointmentReminderJob implements ShouldQueue
 {
@@ -41,13 +42,12 @@ class SendAppointmentReminderJob implements ShouldQueue
         // ---- Patient: push notification + in-app list ----
         $patient = $appointment->user;
         if ($patient) {
-            $hindi = $patient->language === 'hi';
             $doctorName = $appointment->psychiatrist ? $appointment->psychiatrist->name : null;
 
-            $title = $hindi ? 'सत्र 30 मिनट में शुरू होगा ⏰' : 'Your session starts in 30 minutes ⏰';
-            $body = $hindi
-                ? "आपका सत्र {$time} बजे शुरू होगा। जुड़ने के लिए ऐप खोलें।"
-                : 'Your session' . ($doctorName ? " with Dr. {$doctorName}" : '') . " starts at {$time}. Open the app to join.";
+            $title = Language::text('push.reminder_title', $patient->language);
+            $body = $doctorName
+                ? Language::text('push.reminder_body_doctor', $patient->language, ['doctor' => $doctorName, 'time' => $time])
+                : Language::text('push.reminder_body', $patient->language, ['time' => $time]);
 
             try {
                 $patient->notify(new AppointmentReminder($title, $body, $appointment->appointment_id, $iso));

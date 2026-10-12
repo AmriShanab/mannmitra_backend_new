@@ -13,6 +13,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
+use App\Support\Language;
 
 class SendCrisisFollowUpPushJob implements ShouldQueue
 {
@@ -37,16 +38,7 @@ class SendCrisisFollowUpPushJob implements ShouldQueue
      */
     public function handle(NotificationService $notificationService, AIService $openAi, CompanionRepository $repo): void
     {
-        $fallbackEn = [
-            ["title" => "Thinking of you 💙", "body" => "You were feeling a bit low a couple of days ago. Are you doing any better today?"],
-            ["title" => "Checking in", "body" => "We're here for you. Take a deep breath and let us know how today is going."]
-        ];
-        $fallbackHi = [
-            ["title" => "आपके बारे में सोच रहे हैं 💙", "body" => "कुछ दिन पहले आप उदास थे। क्या आज आप बेहतर महसूस कर रहे हैं?"],
-            ["title" => "हम आपके साथ हैं", "body" => "एक गहरी सांस लें और हमें बताएं कि आज का दिन कैसा है।"]
-        ];
-
-        $languageName = ($this->user->language == 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+        $languageName = Language::promptName($this->user->language);
 
         $session = $repo->getActiveSession($this->user->id);
         $recentMessages = $repo->getRecentMessages($session->id, 5);
@@ -79,7 +71,7 @@ class SendCrisisFollowUpPushJob implements ShouldQueue
         } catch (\Exception $e) {
             Log::warning("AI failed to generate follow-up push for user {$this->user->id}. Error: {$e->getMessage()}");
 
-            $pool = ($this->user->language == 'hi') ? $fallbackHi : $fallbackEn;
+            $pool = Language::lines('push.crisis_followup', $this->user->language);
             $fallBackMsg = Arr::random($pool);
             $title = $fallBackMsg['title'];
             $body = $fallBackMsg['body'];

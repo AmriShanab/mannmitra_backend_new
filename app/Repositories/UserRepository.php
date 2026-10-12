@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\User;
 use App\Interfaces\UserRepositoryInterface;
 use Illuminate\Support\Str;
+use App\Support\Language;
 
 class UserRepository implements UserRepositoryInterface
 {
@@ -15,7 +16,7 @@ class UserRepository implements UserRepositoryInterface
             'anonymous_id' => Str::uuid(),
             'role' => 'anonymous',
             'fcmToken' => $data['fcmToken'] ?? null,
-            'language' => $data['languageCode'] ?? 'en',
+            'language' => Language::normalize($data['languageCode'] ?? null),
         ]);
     }
     
@@ -27,7 +28,7 @@ class UserRepository implements UserRepositoryInterface
     public function updateLanguage($userId, $languageCode)
     {
         $user = User::findOrFail($userId);
-        $user->language = $languageCode;
+        $user->language = Language::normalize($languageCode);
         $user->save();
 
         return $user;

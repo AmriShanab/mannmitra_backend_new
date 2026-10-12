@@ -13,6 +13,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
+use App\Support\Language;
 
 class SendPersonalizedPushJob implements ShouldQueue
 {
@@ -33,16 +34,7 @@ class SendPersonalizedPushJob implements ShouldQueue
 
     public function handle(NotificationService $notificationService, AIService $openAi, CompanionRepository $repo)
     {
-        $fallbackEn = [
-            ["title" => "Hi there!", "body" => "You haven't logged your mood today. How are you feeling?"],
-            ["title" => "Checking in 💙", "body" => "Take a moment for yourself. How is your day going?"]
-        ];
-        $fallbackHi = [
-            ["title" => "नमस्ते!", "body" => "आपने आज अपना मूड लॉग नहीं किया। आप कैसा महसूस कर रहे हैं?"],
-            ["title" => "आप कैसे हैं? 💙", "body" => "अपने लिए थोड़ा समय निकालें। आज का दिन कैसा चल रहा है?"]
-        ];
-
-        $languageName = ($this->user->language === 'hi') ? 'conversational Hinglish (Latin script)' : 'English';
+        $languageName = Language::promptName($this->user->language);
         
         $session = $repo->getActiveSession($this->user->id);
         $recentMessages = $repo->getRecentMessages($session->id, 5); 
@@ -72,7 +64,7 @@ class SendPersonalizedPushJob implements ShouldQueue
             }
         } catch (\Exception $e) {
             Log::warning("AI Push Gen failed for User {$this->user->id}. Error: " . $e->getMessage());
-            $pool = ($this->user->language === 'hi') ? $fallbackHi : $fallbackEn;
+            $pool = Language::lines('push.mood', $this->user->language);
             $fallbackMsg = Arr::random($pool);
             $title = $fallbackMsg['title'];
             $body = $fallbackMsg['body'];
