@@ -56,7 +56,9 @@
         <div class="card"><div class="emoji">🤖</div><h4>AI Companion</h4><p>Text and voice conversations, mood tracking, journaling, AI reflections and CBT exercises.</p></div>
         <div class="card"><div class="emoji">👂</div><h4>Listener sessions</h4><p>Paid chat sessions with human listeners, per ticket.</p></div>
         <div class="card"><div class="emoji">🩺</div><h4>Appointments</h4><p>Paid audio or video consultations with professionals, subject to availability.</p></div>
+        {{-- Subscriptions are switched off for the Play Store release. Restore when re-enabled:
         <div class="card"><div class="emoji">⭐</div><h4>Subscriptions</h4><p>Monthly or yearly plans that unlock premium features.</p></div>
+        --}}
         <div class="card"><div class="emoji">💚</div><h4>WhatsApp service</h4><p>An AI chat bot on WhatsApp, subject to WhatsApp's own terms.</p></div>
     </div>
     <p>We may change, suspend or discontinue any feature at any time.</p>
@@ -67,13 +69,17 @@
     <div class="prices">
         <div class="price"><small>Listener ticket</small><div class="amt">₹<mark class="ph">[99]</mark></div></div>
         <div class="price"><small>Appointment</small><div class="amt">₹<mark class="ph">[499]</mark></div></div>
+        {{-- Subscription prices (restore when subscriptions are re-enabled):
         <div class="price"><small>Monthly plan</small><div class="amt">₹<mark class="ph">[99]</mark></div></div>
         <div class="price"><small>Yearly plan</small><div class="amt">₹<mark class="ph">[799]</mark></div></div>
+        --}}
     </div>
     <ul>
-        <li>Prices are in INR and shown before payment. Prices may change, but not for payments already made.</li>
+        <li>Each listener chat session and each doctor appointment is paid for individually, before it starts. Prices are in INR and shown before payment. Prices may change, but not for payments already made.</li>
         <li>Payments are processed by <strong>Razorpay</strong>. We don't store your payment credentials.</li>
+        {{-- Restore when subscriptions are re-enabled:
         <li>Subscriptions run for one month or one year from purchase. <mark class="ph">[STATE WHETHER THEY AUTO-RENEW; the current implementation activates fixed-period plans, so this assumes no auto-renewal]</mark></li>
+        --}}
         <li>If a payment fails but your account is debited, the bank or gateway normally refunds it within 3–5 working days.</li>
     </ul>
 </section>
@@ -85,7 +91,9 @@
         <li>You may cancel an appointment before it starts. Refunds for cancellations made at least <mark class="ph">[X]</mark> hours before the appointment are issued to the original payment method within <mark class="ph">[5–7]</mark> working days.</li>
         <li>No refund for missed appointments or for sessions already delivered.</li>
         <li>If we or the professional cancel or fail to attend, you get a full refund or a free reschedule.</li>
+        {{-- Restore when subscriptions are re-enabled:
         <li>Subscription fees are non-refundable once the plan is activated, except where required by law.</li>
+        --}}
         <li>Appointments not paid for within the allowed time, and appointments that expire, are cancelled automatically.</li>
     </ul>
 </section>
