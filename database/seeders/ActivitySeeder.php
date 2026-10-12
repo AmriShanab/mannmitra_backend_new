@@ -48,6 +48,17 @@ class ActivitySeeder extends Seeder
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ],
+            [
+                'activity_id' => 'butterfly_hug_01',
+                'title' => 'Butterfly Hug',
+                'translations' => json_encode(['hi' => ['title' => 'बटरफ्लाई हग', 'description' => 'सीने पर हाथ क्रॉस करके बारी-बारी से थपथपाएँ और धीरे-धीरे साँस लें।']]),
+                'description' => 'Cross your arms, tap left and right, and breathe slowly for a minute.',
+                'duration' => '1 MIN',
+                'icon_name' => 'favorite',
+                'color_hex' => 'F28CB1',
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ],
         ];
 
         // 2. Clear the table first so we don't get duplicates if you run it twice

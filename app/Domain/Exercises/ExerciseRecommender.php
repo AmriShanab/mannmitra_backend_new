@@ -41,6 +41,9 @@ class ExerciseRecommender
             if ($has(GroundingExercise::ID) && !$doneToday(GroundingExercise::ID)) {
                 return GroundingExercise::ID;
             }
+            if ($has(ButterflyHugExercise::ID) && !$doneToday(ButterflyHugExercise::ID)) {
+                return ButterflyHugExercise::ID;
+            }
         }
 
         $hour = (int) now()->format('G');
