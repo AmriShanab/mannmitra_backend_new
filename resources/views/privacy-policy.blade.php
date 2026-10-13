@@ -164,7 +164,7 @@
         <li>Email: <mark class="ph">[EMAIL]</mark></li>
         <li>Phone: <mark class="ph">[PHONE]</mark></li>
         <li>Address: <mark class="ph">[ADDRESS]</mark></li>
-        <li>Grievance Officer: <mark class="ph">[NAME, EMAIL]</mark></li>
+        <li>Grievance Officer: <mark class="ph">[NAME]</mark>, <mark class="ph">[EMAIL]</mark></li>
     </ul>
 </section>
 
