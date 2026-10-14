@@ -15,10 +15,9 @@
 
 <section class="sec">
     <h2>Who we are</h2>
-    <p>MannMitra ("we", "us", "our") is operated by <mark class="ph">[COMPANY / LEGAL NAME]</mark>, <mark class="ph">[ADDRESS]</mark>, India.</p>
+    <p>MannMitra ("we", "us", "our") is operated by KAUSHIK PRODUCTIONS, located at B-501 Garden Estate Society, New Link Road, Goregaon West, Mumbai 400104, India.</p>
     <ul>
-        <li>Privacy questions: <mark class="ph">[EMAIL]</mark></li>
-        <li>Grievance Officer: <mark class="ph">[NAME]</mark>, <mark class="ph">[EMAIL]</mark></li>
+        <li>Privacy questions: k.izardar@gmail.com</li>
     </ul>
 </section>
 
@@ -104,7 +103,7 @@
         <li><strong>Listeners and professionals you connect with:</strong> they see the messages and details of your session or appointment.</li>
         <li><strong>Authorities:</strong> where required by law, or to protect someone's life or safety.</li>
     </ul>
-    <p>Audio and video calls are peer-to-peer where possible, and may pass through our relay (TURN) server. <strong>We do not record calls</strong> <mark class="ph">[CONFIRM THIS]</mark>.</p>
+    <p>Audio and video calls are peer-to-peer where possible, and may pass through our relay (TURN) server. <strong>We do not record calls</strong>.</p>
 </section>
 
 <section class="sec">
@@ -120,7 +119,6 @@
 <section class="sec">
     <h2>Data retention</h2>
     <p>We keep your data while your account or anonymous profile is active and as long as needed to provide the service. After that, we keep it only as required for legal, tax, fraud-prevention or dispute purposes. Payment records are kept as required by Indian law.</p>
-    <p>Typical retention: <mark class="ph">[SPECIFY, e.g., chats and journals deleted [X] days after deletion request or inactivity]</mark>.</p>
 </section>
 
 <section class="sec">
@@ -134,7 +132,7 @@
         <li>nominate someone to exercise rights on your behalf</li>
         <li>raise a grievance</li>
     </ul>
-    <p>To exercise these rights, email <mark class="ph">[EMAIL]</mark>. We will respond within <mark class="ph">[30]</mark> days. You can also delete your whole account inside the app (Profile &rarr; Delete my account) or follow the steps on our <a href="{{ route('account.deletion') }}">account deletion page</a>.</p>
+    <p>To exercise these rights, email k.izardar@gmail.com. We will respond within 30 days. You can also delete your whole account inside the app (Profile &rarr; Delete my account) or follow the steps on our <a href="{{ route('account.deletion') }}">account deletion page</a>.</p>
 </section>
 
 <section class="sec">
@@ -144,7 +142,7 @@
 
 <section class="sec">
     <h2>Children</h2>
-    <p>MannMitra is intended for users aged <strong>18 and above</strong> <mark class="ph">[CONFIRM; if you allow 13–17, add a parental-consent clause as the DPDP Act requires]</mark>. We do not knowingly collect data from children. If you believe a child has used the app, contact us and we will delete the data.</p>
+    <p>MannMitra is intended for users aged <strong>18 and above</strong>. We do not knowingly collect data from children. If you believe a child has used the app, contact us and we will delete the data.</p>
 </section>
 
 <section class="sec">
@@ -160,11 +158,10 @@
 <section class="sec">
     <h2>Contact us</h2>
     <ul>
-        <li><mark class="ph">[COMPANY NAME]</mark></li>
-        <li>Email: <mark class="ph">[EMAIL]</mark></li>
-        <li>Phone: <mark class="ph">[PHONE]</mark></li>
-        <li>Address: <mark class="ph">[ADDRESS]</mark></li>
-        <li>Grievance Officer: <mark class="ph">[NAME]</mark>, <mark class="ph">[EMAIL]</mark></li>
+        <li>KAUSHIK PRODUCTIONS</li>
+        <li>Email: k.izardar@gmail.com</li>
+        <li>Phone: 9892291090</li>
+        <li>Address: B-501 Garden Estate Society, New Link Road, Goregaon West, Mumbai 400104</li>
     </ul>
 </section>
 

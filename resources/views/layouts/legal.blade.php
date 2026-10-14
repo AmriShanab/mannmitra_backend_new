@@ -204,7 +204,7 @@
         <h1>@yield('heading')</h1>
         <p class="sub">@yield('subtitle')</p>
         <div class="meta">
-            <span>Last updated: <mark class="ph">[DATE]</mark></span>
+            <span>Last updated: 14 October 2026</span>
             <span>Applies to the MannMitra app &amp; WhatsApp service</span>
         </div>
     </div>
@@ -232,7 +232,7 @@
 
 <footer>
     <img src="{{ asset('images/app_icon.png') }}" alt="">
-    &copy; {{ date('Y') }} <mark class="ph">[COMPANY / LEGAL NAME]</mark>. All rights reserved. MannMitra is not an emergency service.
+    &copy; {{ date('Y') }} KAUSHIK PRODUCTIONS. All rights reserved. MannMitra is not an emergency service.
 </footer>
 
 <script>

@@ -50,9 +50,9 @@
 
 <section class="sec">
     <h2>Cannot open the app?</h2>
-    <p>If you uninstalled the app or cannot sign in, email us from the address you registered with, or tell us your anonymous ID, and ask us to delete your account. We will confirm and complete the deletion within <mark class="ph">[30]</mark> days.</p>
+    <p>If you uninstalled the app or cannot sign in, email us from the address you registered with, or tell us your anonymous ID, and ask us to delete your account. We will confirm and complete the deletion within 30 days.</p>
     <ul>
-        <li>Email: <mark class="ph">[EMAIL]</mark></li>
+        <li>Email: k.izardar@gmail.com</li>
         <li>Subject line: <strong>Delete my MannMitra account</strong></li>
     </ul>
     <p>If you also chatted with us on WhatsApp, include the phone number you used so we can delete that conversation too.</p>

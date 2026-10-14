@@ -20,7 +20,7 @@
 
 <section class="sec">
     <h2>Eligibility</h2>
-    <p>You must be <strong>18 or older</strong> <mark class="ph">[CONFIRM]</mark> and able to enter into a binding contract under Indian law.</p>
+    <p>You must be an adult, <strong>18 or older</strong>, and able to enter into a binding contract under Indian law.</p>
 </section>
 
 <section class="sec">
@@ -38,8 +38,8 @@
         </div>
     </div>
     <ul>
-        <li>MannMitra provides emotional support and wellbeing tools. <strong>The AI companion is not a doctor, therapist or counsellor, and its responses are not medical advice, diagnosis or treatment.</strong></li>
-        <li><strong>Listeners</strong> provide supportive conversation and are not necessarily licensed clinicians. <strong>Psychiatrists and professionals</strong> provide consultations as independent practitioners <mark class="ph">[CONFIRM]</mark>.</li>
+        <li>MannMitra provides emotional support and wellbeing tools. <strong>The AI companion is not a doctor, therapist or counsellor, and its responses are not medical advice, diagnosis or treatment.</strong> MannMitra offers emotional support, it is not an emergency service, and crisis detection cannot be guaranteed.</li>
+        <li><strong>Listeners</strong> provide supportive conversation and are not necessarily licensed clinicians. <strong>Psychiatrists and professionals</strong> provide consultations as independent practitioners.</li>
         <li>Keyword-based crisis detection may miss some situations. Do not rely on MannMitra to detect or respond to an emergency.</li>
         <li>Never ignore or delay professional advice because of something you read or heard in the app.</li>
     </ul>
@@ -125,7 +125,7 @@
 
 <section class="sec">
     <h2>Intellectual property</h2>
-    <p>The app, its design, text, animations and software belong to <mark class="ph">[COMPANY]</mark> or its licensors. You may not copy, modify or distribute them without written permission.</p>
+    <p>The app, its design, text, animations and software belong to KAUSHIK PRODUCTIONS or its licensors. You may not copy, modify or distribute them without written permission.</p>
 </section>
 
 <section class="sec">
@@ -140,7 +140,7 @@
 
 <section class="sec">
     <h2>Limitation of liability</h2>
-    <p>To the extent permitted by law, <mark class="ph">[COMPANY]</mark> is not liable for indirect, incidental or consequential damages, or for decisions you make based on AI or listener responses. Our total liability for any claim is limited to the amount you paid us in the 12 months before the claim. Nothing here excludes liability that cannot be excluded under Indian law.</p>
+    <p>To the extent permitted by law, KAUSHIK PRODUCTIONS is not liable for indirect, incidental or consequential damages, or for decisions you make based on AI or listener responses. Our total liability for any claim is limited to the amount you paid us in the 12 months before the claim. Nothing here excludes liability that cannot be excluded under Indian law.</p>
 </section>
 
 <section class="sec">
@@ -160,17 +160,16 @@
 
 <section class="sec">
     <h2>Governing law and disputes</h2>
-    <p>These Terms are governed by the laws of India. Courts in <mark class="ph">[CITY, STATE]</mark> have exclusive jurisdiction <mark class="ph">[optionally: after attempting resolution through arbitration]</mark>.</p>
+    <p>These Terms are governed by the laws of India. Courts in Maharashtra have exclusive jurisdiction.</p>
 </section>
 
 <section class="sec">
     <h2>Contact us</h2>
     <ul>
-        <li><mark class="ph">[COMPANY NAME]</mark></li>
-        <li>Email: <mark class="ph">[EMAIL]</mark></li>
-        <li>Phone: <mark class="ph">[PHONE]</mark></li>
-        <li>Address: <mark class="ph">[ADDRESS]</mark></li>
-        <li>Grievance Officer: <mark class="ph">[NAME]</mark>, <mark class="ph">[EMAIL]</mark></li>
+        <li>KAUSHIK PRODUCTIONS</li>
+        <li>Email: kaushikizardar@gmail.com</li>
+        <li>Phone: 9892291090</li>
+        <li>Address: B-501 Garden Estate Society, New Link Road, Goregaon West, Mumbai -400104</li>
     </ul>
 </section>
 
