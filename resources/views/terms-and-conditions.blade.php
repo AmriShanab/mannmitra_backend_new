@@ -86,11 +86,12 @@
 
 <section class="sec">
     <h2>Cancellations and refunds</h2>
-    <p><mark class="ph">[CONFIRM POLICY. Suggested wording below:]</mark></p>
     <ul>
-        <li>You may cancel an appointment before it starts. Refunds for cancellations made at least <mark class="ph">[X]</mark> hours before the appointment are issued to the original payment method within <mark class="ph">[5–7]</mark> working days.</li>
-        <li>No refund for missed appointments or for sessions already delivered.</li>
-        <li>If we or the professional cancel or fail to attend, you get a full refund or a free reschedule.</li>
+        <li><strong>Cancelling a confirmed appointment:</strong> call your psychiatrist using the number shown on the appointment in the app and ask to cancel. The appointment is cancelled only if the psychiatrist allows it. After your call, tap "Request cancellation" in the app so the psychiatrist can confirm it.</li>
+        <li><strong>Refund:</strong> once the psychiatrist allows the cancellation, you get a full refund to the original payment method. We start the refund immediately and it reaches you within <strong>3 to 4 working days</strong>, depending on your bank.</li>
+        <li>If your appointment has not yet been accepted by a psychiatrist, you can cancel it in the app at any time before it starts and it is refunded automatically in the same way.</li>
+        <li>If the psychiatrist does not allow the cancellation, the appointment stays scheduled. There is no refund for missed appointments or for sessions already delivered.</li>
+        <li>If we or the psychiatrist cancel or fail to attend, you get a full refund or a free reschedule.</li>
         {{-- Restore when subscriptions are re-enabled:
         <li>Subscription fees are non-refundable once the plan is activated, except where required by law.</li>
         --}}

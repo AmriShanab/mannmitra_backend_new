@@ -122,6 +122,66 @@ class AppointmentController extends Controller
         }
     }
 
+    public function requestCancellation($id)
+    {
+        try {
+            $out = $this->appointementService->requestCancellation($id, Auth::id());
+            $appointment = $out['appointment'];
+
+            if ($out['result'] === 'requested' && $appointment->psychiatrist_id) {
+                $this->push($appointment->psychiatrist_id, 'Cancellation request', 'A patient has asked to cancel an appointment. Please review it on your dashboard.');
+            }
+
+            return response()->json([
+                'status' => true,
+                'result' => $out['result'],
+                'message' => $out['result'] === 'cancelled'
+                    ? 'Appointment cancelled. Your refund will reach you in 3 to 4 days.'
+                    : 'Cancellation requested. Your psychiatrist will confirm it.',
+                'data' => $appointment,
+            ]);
+        } catch (\Exception $e) {
+            return $this->cancelError($e);
+        }
+    }
+
+    public function decideCancellation(Request $request, $id)
+    {
+        $request->validate(['approve' => 'required|boolean']);
+
+        try {
+            $appointment = $this->appointementService->decideCancellation($id, Auth::id(), $request->boolean('approve'));
+
+            $this->push($appointment->user_id,
+                $appointment->status === 'cancelled' ? 'Appointment cancelled' : 'Cancellation declined',
+                $appointment->status === 'cancelled'
+                    ? 'Your appointment is cancelled. Your refund will reach you in 3 to 4 days.'
+                    : 'Your psychiatrist could not cancel this appointment. It is still scheduled.');
+
+            return response()->json(['status' => true, 'data' => $appointment]);
+        } catch (\Exception $e) {
+            return $this->cancelError($e);
+        }
+    }
+
+    private function cancelError(\Exception $e)
+    {
+        $code = in_array($e->getCode(), [404, 422, 502], true) ? $e->getCode() : 500;
+        return response()->json(['status' => false, 'message' => $code === 500 ? 'Something went wrong.' : $e->getMessage()], $code);
+    }
+
+    private function push($userId, string $title, string $body): void
+    {
+        try {
+            $token = \App\Models\User::whereKey($userId)->value('fcmToken');
+            if ($token) {
+                app(\App\Services\NotificationService::class)->sendToUser($token, $title, $body, ['type' => 'appointment_cancel']);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Cancellation push failed: ' . $e->getMessage());
+        }
+    }
+
     public function getJoinDetails($id)
     {
         $appointment = Appointment::where('appointment_id', $id)->firstOrFail();
@@ -174,7 +234,7 @@ class AppointmentController extends Controller
             // Unpaid (abandoned checkout) bookings are not shown to the patient.
             $appointments = Appointment::where('user_id', $userId)
                 ->where('status', '!=', 'pending_payment')
-                ->with(['psychiatrist:id,name'])
+                ->with(['psychiatrist:id,name,phone'])
                 ->orderBy('scheduled_at', 'desc')
                 ->get();
 

@@ -136,6 +136,14 @@
             </div>
         </section>
 
+        <section class="card" id="cancel-card" style="margin-bottom:18px;display:none">
+            <div class="card-head">
+                <h2 class="card-title"><i class="fas fa-calendar-xmark"></i> Cancellation requests</h2>
+                <span class="badge warn" id="badge-cancel-count">0</span>
+            </div>
+            <div id="cancel-container"></div>
+        </section>
+
         <div class="grid-7-5">
             <section class="card">
                 <div class="card-head">
@@ -186,6 +194,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         loadPendingRequests();
         loadAgenda();
+        loadCancelRequests();
+        setInterval(loadCancelRequests, 60000);
     });
 
     // TABS
@@ -353,6 +363,57 @@
             }
         } catch (e) {
             console.error(e);
+        }
+    }
+
+    async function loadCancelRequests() {
+        const card = document.getElementById('cancel-card');
+        const container = document.getElementById('cancel-container');
+        try {
+            const res = await fetch(`${API_BASE}/appointments/my-schedule`, { headers: HEADERS });
+            const json = await res.json();
+            const reqs = (json.status ? json.data : []).filter(a => a.cancel_requested_at && a.status === 'confirmed');
+
+            card.style.display = reqs.length ? '' : 'none';
+            document.getElementById('badge-cancel-count').innerText = reqs.length;
+
+            container.innerHTML = reqs.map(apt => `
+                <div class="row-item">
+                    <div class="row-main">
+                        <div class="row-title">${escHtml(apt.user.name)}</div>
+                        <div class="row-meta">
+                            <span><i class="far fa-clock"></i>${escHtml(new Date(apt.scheduled_at).toLocaleString('en-US', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}))}</span>
+                            <span>Patient asked to cancel. Approving refunds them in full.</span>
+                        </div>
+                    </div>
+                    <div class="row-actions">
+                        <button onclick="decideCancel('${escHtml(apt.appointment_id)}', true)" class="btn btn-primary">Approve &amp; refund</button>
+                        <button onclick="decideCancel('${escHtml(apt.appointment_id)}', false)" class="btn">Decline</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function decideCancel(id, approve) {
+        const msg = approve
+            ? "Cancel this appointment and refund the patient in full?"
+            : "Decline the cancellation? The appointment stays scheduled.";
+        if (!confirm(msg)) return;
+        try {
+            const res = await fetch(`${API_BASE}/appointments/${encodeURIComponent(id)}/cancel-decision`, {
+                method: 'POST',
+                headers: { ...HEADERS, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ approve })
+            });
+            const json = await res.json();
+            if (!json.status) alert(json.message || 'Something went wrong.');
+            loadCancelRequests();
+            loadAgenda();
+        } catch (e) {
+            alert("Network Error");
         }
     }
 

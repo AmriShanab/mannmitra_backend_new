@@ -94,6 +94,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/pending', 'listPendingAppointments');
             Route::get('/my-schedule', 'mySchedule');
             Route::post('/{id}/accept', 'accept');
+            Route::post('/{id}/cancel-request', 'requestCancellation');
+            Route::post('/{id}/cancel-decision', 'decideCancellation');
             Route::get('/{id}/join', 'getJoinDetails');
             Route::get('/my-history', [AppointmentController::class, 'getAppointmentsOfUser']);
             Route::post('/close', [AppointmentController::class, 'closingAppointments']);

@@ -52,6 +52,16 @@ class RazorpayGateway implements PaymentGatewayInterface
         }
     }
 
+    public function refundPayment(string $paymentId, array $notes = [])
+    {
+        $refund = $this->api->payment->fetch($paymentId)->refund([
+            'speed' => 'normal',
+            'notes' => $notes,
+        ])->toArray();
+
+        return ['id' => $refund['id'], 'status' => $refund['status'] ?? 'pending'];
+    }
+
     public function fetchOrder(string $orderId)
     {
         $order = $this->api->order->fetch($orderId)->toArray();

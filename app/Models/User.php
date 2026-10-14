@@ -29,6 +29,7 @@ class User extends Authenticatable
         'fcmToken',
         'last_active_at',
         'is_paid',
+        'phone',
     ];
 
     /**

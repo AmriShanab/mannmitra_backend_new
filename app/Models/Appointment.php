@@ -18,6 +18,11 @@ class Appointment extends Model
         'razorpay_order_id',
         'razorpay_payment_id',
         'reminder_sent_at',
+        'cancel_requested_at',
+        'cancelled_at',
+        'refund_id',
+        'refund_status',
+        'refund_initiated_at',
     ];
 
     /**

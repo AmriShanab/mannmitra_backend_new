@@ -10,6 +10,9 @@ class MockPaymentGateway implements PaymentGatewayInterface {
     public function verifyPayment($attributes) {
         return true;
     }
+    public function refundPayment(string $paymentId, array $notes = []) {
+        return ['id' => 'rfnd_mock_' . time(), 'status' => 'processed'];
+    }
     public function fetchOrder(string $orderId) {
         return ['id' => $orderId, 'amount' => 0, 'currency' => 'INR', 'status' => 'paid', 'notes' => []];
     }

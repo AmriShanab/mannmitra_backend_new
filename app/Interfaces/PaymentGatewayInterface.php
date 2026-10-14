@@ -19,4 +19,10 @@ interface PaymentGatewayInterface
      * Fetch an existing order (amount, notes, status).
      */
     public function fetchOrder(string $orderId);
+
+    /**
+     * Fully refund a captured payment to its original payment method.
+     * Returns ['id' => refundId, 'status' => ...]; throws if the gateway rejects it.
+     */
+    public function refundPayment(string $paymentId, array $notes = []);
 }
