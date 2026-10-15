@@ -59,7 +59,7 @@ class RazorpayGateway implements PaymentGatewayInterface
         $refund = (new \Razorpay\Api\Request())->request(
             'POST',
             'payments/' . rawurlencode($paymentId) . '/refund',
-            ['speed' => 'normal', 'notes' => $notes]
+            array_filter(['notes' => $notes])
         );
         $refund = is_array($refund) ? $refund : (array) $refund;
 

@@ -25,6 +25,8 @@ class TestRefund extends Command
             return self::SUCCESS;
         } catch (\Throwable $e) {
             $this->error('Refund failed: ' . $e->getMessage());
+            $this->line('Type: ' . get_class($e) . ' | code: ' . $e->getCode()
+                . (method_exists($e, 'getField') && $e->getField() ? ' | field: ' . $e->getField() : ''));
             return self::FAILURE;
         }
     }
