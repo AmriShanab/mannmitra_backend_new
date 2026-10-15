@@ -214,7 +214,7 @@ async function sendMessage() {
 
 // ── End Session ───────────────────────────────────────────────
 endBtn.addEventListener('click', async () => {
-    if (!confirm("End this session? The user will be notified.")) return;
+    if (!(await MM.confirm('The user will be notified that the session has ended.', { title: 'End this session?', okText: 'End session', danger: true }))) return;
 
     try {
         const res = await fetch('/api/v1/listener/end-session', {
@@ -237,11 +237,11 @@ endBtn.addEventListener('click', async () => {
                 window.location.href = "{{ route('listener.dashboard') }}";
             }, 1200);
         } else {
-            alert("Could not end session: " + (result.message || "Unknown error"));
+            MM.toast("Could not end session: " + (result.message || "Unknown error"), 'error');
         }
     } catch (err) {
         console.error("End session error:", err);
-        alert("An error occurred. Please try again.");
+        MM.toast("An error occurred. Please try again.", 'error');
     }
 });
 

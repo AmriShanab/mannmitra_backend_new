@@ -80,6 +80,7 @@
             .controls-bar { gap: 12px; padding: 10px 16px; }
         }
     </style>
+    <script src="{{ asset('js/mm-ui.js') }}"></script>
 </head>
 <body>
 
@@ -142,7 +143,7 @@
         const socket = io(SIGNALING_URL, { transports: ['websocket'], auth: { token: SOCKET_TOKEN } });
         socket.on('connect_error', (err) => {
             console.error('Signaling connection failed:', err.message);
-            if (err.message === 'unauthorized') alert('Session expired. Please reopen this page.');
+            if (err.message === 'unauthorized') MM.toast('Session expired. Please reopen this page.', 'error');
         });
 
         const remoteVideo = document.getElementById('remoteVideo');
@@ -155,7 +156,7 @@
                 localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('localVideo').srcObject = localStream;
             } catch (e) {
-                alert("Camera access failed. Check permissions.");
+                MM.toast("Camera access failed. Check permissions.", 'error');
                 return;
             }
 
@@ -248,13 +249,13 @@
             if (callEnded) return;
             callEnded = true;
             await closeAppointmentOnServer();
-            alert("Call ended by patient.");
-            closeVideoCall();
+            MM.toast('The patient ended the call.', 'info');
+            setTimeout(closeVideoCall, 1800); // let the notice be seen before leaving the page
         });
 
         async function endCall() {
             if (callEnded) return;
-            if (confirm("End session?")) {
+            if (await MM.confirm('The patient will be disconnected and the appointment will be marked complete.', { title: 'End session?', okText: 'End session', danger: true })) {
                 callEnded = true;
                 socket.emit('hangup', { room: ROOM_ID });
                 await closeAppointmentOnServer();

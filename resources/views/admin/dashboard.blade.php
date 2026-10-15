@@ -151,6 +151,7 @@
 @stop
 
 @section('js')
+<script src="{{ asset('js/mm-ui.js') }}"></script>
 <script>
     $(document).ready(function() {
         
@@ -214,8 +215,8 @@
         });
 
         // 2. Handle "Resolve" Click
-        $('.resolve-btn').click(function() {
-            if(!confirm('Are you sure you want to mark this alert as resolved?')) return;
+        $('.resolve-btn').click(async function() {
+            if (!(await MM.confirm('This alert will be marked as handled.', { title: 'Resolve this alert?', okText: 'Mark resolved' }))) return;
 
             var btn = $(this);
             var alertId = btn.data('alert-id');

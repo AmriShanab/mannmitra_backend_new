@@ -269,16 +269,16 @@
             },
 
             // 2. Handle Click (Prevent joining if cancelled/closed)
-            eventClick: (info) => {
+            eventClick: async (info) => {
                 info.jsEvent.preventDefault(); // Stop default browser navigation
 
                 const status = info.event.extendedProps.status;
                 const url = info.event.url;
 
                 if (['cancelled', 'expired', 'closed', 'completed'].includes(status)) {
-                    alert(`This appointment is ${status.toUpperCase()} and cannot be joined.`);
+                    MM.toast(`This appointment is ${status} and cannot be joined.`, 'warning');
                 } else {
-                    if (confirm(`Join video session with ${info.event.title}?`)) {
+                    if (await MM.confirm(`Join video session with ${info.event.title}?`, { title: 'Join session', okText: 'Join now' })) {
                         window.open(url, '_blank');
                     }
                 }
@@ -401,7 +401,10 @@
         const msg = approve
             ? "Cancel this appointment and refund the patient in full?"
             : "Decline the cancellation? The appointment stays scheduled.";
-        if (!confirm(msg)) return;
+        const ok = await MM.confirm(msg, approve
+            ? { title: 'Approve cancellation', okText: 'Approve & refund', danger: true }
+            : { title: 'Decline cancellation', okText: 'Decline request' });
+        if (!ok) return;
         try {
             const res = await fetch(`${API_BASE}/appointments/${encodeURIComponent(id)}/cancel-decision`, {
                 method: 'POST',
@@ -409,16 +412,20 @@
                 body: JSON.stringify({ approve })
             });
             const json = await res.json();
-            if (!json.status) alert(json.message || 'Something went wrong.');
+            if (json.status) {
+                MM.toast(approve ? 'Appointment cancelled. The refund has been started.' : 'Cancellation declined. The appointment stays scheduled.', 'success');
+            } else {
+                MM.toast(json.message || 'Something went wrong.', 'error');
+            }
             loadCancelRequests();
             loadAgenda();
         } catch (e) {
-            alert("Network Error");
+            MM.toast('Network error. Please check your connection and try again.', 'error');
         }
     }
 
     async function acceptAppointment(id) {
-        if (!confirm("Are you sure you want to accept this patient?")) return;
+        if (!(await MM.confirm('You will be assigned to this patient and the session will be added to your schedule.', { title: 'Accept this patient?', okText: 'Accept' }))) return;
         try {
             const res = await fetch(`${API_BASE}/appointments/${id}/accept`, {
                 method: 'POST',
@@ -426,13 +433,14 @@
             });
             const json = await res.json();
             if (json.status) {
+                MM.toast('Patient accepted. The appointment is now on your schedule.', 'success');
                 loadPendingRequests();
                 loadAgenda();
             } else {
-                alert(json.message);
+                MM.toast(json.message || 'Could not accept this request.', 'error');
             }
         } catch (e) {
-            alert("Network Error");
+            MM.toast('Network error. Please check your connection and try again.', 'error');
         }
     }
 </script>
