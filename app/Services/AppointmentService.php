@@ -144,7 +144,7 @@ class AppointmentService
                 // Already refunded on the Razorpay side: carry on and just cancel.
                 if (!str_contains(strtolower($e->getMessage()), 'fully refunded')) {
                     Log::error('Appointment refund failed', ['appointment' => $appointment->appointment_id, 'error' => $e->getMessage()]);
-                    throw new Exception('The refund could not be started. Nothing was changed, please try again.', 502);
+                    throw new Exception('The refund could not be started (' . $e->getMessage() . '). Nothing was changed.', 502);
                 }
             }
         }

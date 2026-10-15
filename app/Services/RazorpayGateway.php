@@ -54,10 +54,14 @@ class RazorpayGateway implements PaymentGatewayInterface
 
     public function refundPayment(string $paymentId, array $notes = [])
     {
-        $refund = $this->api->payment->fetch($paymentId)->refund([
-            'speed' => 'normal',
-            'notes' => $notes,
-        ])->toArray();
+        // Posted straight to /payments/{id}/refund: the SDK's Payment::refund() helper sends the
+        // request to /refunds instead, which Razorpay rejects with "invalid request sent".
+        $refund = (new \Razorpay\Api\Request())->request(
+            'POST',
+            'payments/' . rawurlencode($paymentId) . '/refund',
+            ['speed' => 'normal', 'notes' => $notes]
+        );
+        $refund = is_array($refund) ? $refund : (array) $refund;
 
         return ['id' => $refund['id'], 'status' => $refund['status'] ?? 'pending'];
     }
