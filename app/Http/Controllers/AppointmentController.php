@@ -23,8 +23,8 @@ class AppointmentController extends Controller
     {
         $request->validate([
             'scheduled_at' => 'required|date|after:now',
-            'notes' => 'nullable|string',
-            'mode' => 'nullable|string'
+            'notes' => 'nullable|string|max:2000',
+            'mode' => 'nullable|in:video,audio'
         ]);
 
         $user = Auth::user();
@@ -55,7 +55,7 @@ class AppointmentController extends Controller
             
         } catch (\Throwable $th) {
             \Illuminate\Support\Facades\Log::error('Appointment create failed: ' . $th->getMessage());
-            return response()->json(['status' => false, 'message' => 'Failed to create appointment request: ' . $th->getMessage()], 500);
+            return response()->json(['status' => false, 'message' => 'Unable to start payment. Please try again.'], 502);
         }
     }
 
@@ -85,8 +85,12 @@ class AppointmentController extends Controller
             return response()->json(['status' => false, 'message' => 'Invalid payment'], 400);
         }
 
-        $appointment = $this->appointementService->processPayment($request->appointment_id, $request->payment_id);
-        
+        try {
+            $appointment = $this->appointementService->processPayment($request->appointment_id, $request->payment_id);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()], 409);
+        }
+
         return response()->json(['status' => true, 'message' => 'Payment verified. Appointment is now waiting for a doctor.', 'data' => $appointment]);
     }
     
@@ -253,7 +257,7 @@ class AppointmentController extends Controller
         } catch (\Throwable $th) {
             return response()->json([
                 "status" => false,
-                "message" => "Error: " . $th->getMessage()
+                "message" => "Unable to load appointments right now."
             ], 500);
         }
     }
@@ -272,8 +276,9 @@ class AppointmentController extends Controller
                 return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
             }
 
-            // Idempotent: both sides may hang up; only live appointments move to "completed".
-            if (in_array($appointment->status, ['pending', 'confirmed'])) {
+            // Idempotent: both sides may hang up. Only a confirmed session (a doctor was assigned)
+            // can be completed; a pending one must stay cancellable/refundable.
+            if ($appointment->status === 'confirmed') {
                 $appointment->status = 'completed';
                 $appointment->save();
             }

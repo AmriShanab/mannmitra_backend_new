@@ -44,7 +44,7 @@ class MoodController extends Controller
 
     public function dailySummary(Request $request)
     {
-        $days = (int) $request->query('days', 14);
+        $days = min(90, max(1, (int) $request->query('days', 14)));
         $data = $this->moodService->generateDailySummary($request->user()->id, $days);
 
         return $this->successResponse($data);

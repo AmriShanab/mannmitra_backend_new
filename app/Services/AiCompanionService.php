@@ -33,9 +33,11 @@ class AiCompanionService
 
     // Helpline numbers live in code so the model can never alter them.
     private const CRISIS_OPTIONS = [
+        // Tele-MANAS: Govt. of India, free, 24x7, many Indian languages.
+        ['id' => '14416', 'label' => 'Call Tele-MANAS'],
         ['id' => '9152987821', 'label' => 'Call iCall'],
         ['id' => '9820466726', 'label' => 'Call AASRA'],
-        ['id' => '18602662345', 'label' => 'Call Vandrevala'],
+        ['id' => '9999666555', 'label' => 'Call Vandrevala'],
     ];
 
     public function __construct(CompanionRepository $repo, AIService $openAi, CrisisService $crisisService, ExerciseAccessService $exerciseAccess, ExerciseSessionService $exercises, AiResponseValidator $validator, PromptRepository $prompts, AiBudgetService $budget)

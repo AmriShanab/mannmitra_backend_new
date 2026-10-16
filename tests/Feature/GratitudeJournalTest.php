@@ -63,6 +63,7 @@ class GratitudeJournalTest extends TestCase
             }
             public function verifyPayment($a) { return true; }
             public function fetchOrder(string $id) { return self::$orders[$id]; }
+            public function refundPayment(string $paymentId, array $notes = []) { return ['id' => 'rfnd_test', 'status' => 'processed']; }
         });
 
         (new ActivitySeeder)->run();

@@ -46,9 +46,10 @@ class CrisisService
     {
         return "I'm really concerned about what you just said. You are not alone, and there is help available.\n\n" .
                "Please reach out to these support lines in India immediately:\n" .
+               "📞 **Tele-MANAS:** 14416 (free, 24x7, many languages)\n" .
                "📞 **iCall:** 9152987821 (Mon-Sat, 10 AM - 8 PM)\n" .
                "📞 **AASRA:** 9820466726 (24x7)\n" .
-               "📞 **Vandrevala Foundation:** 1860 266 2345 (24x7)\n\n" .
+               "📞 **Vandrevala Foundation:** +91 9999 666 555 (24x7)\n\n" .
                "I am here to listen, but please consider calling one of these numbers right now.";
     }
 }

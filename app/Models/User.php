@@ -41,6 +41,8 @@ class User extends Authenticatable
         'password',
         'remember_token',
         'id', // Good practice to hide the internal auto-increment ID
+        // The device token also identifies the anonymous user at /sessions/start, so treat it as a secret.
+        'fcmToken',
     ];
 
     /**

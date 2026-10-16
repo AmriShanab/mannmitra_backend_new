@@ -58,6 +58,7 @@ class ButterflyHugTest extends TestCase
             }
             public function verifyPayment($a) { return true; }
             public function fetchOrder(string $id) { return self::$orders[$id]; }
+            public function refundPayment(string $paymentId, array $notes = []) { return ['id' => 'rfnd_test', 'status' => 'processed']; }
         });
 
         (new ActivitySeeder)->run();
@@ -148,6 +149,7 @@ class ButterflyHugTest extends TestCase
         $r = $this->svc->processInteraction($this->user, 'text_input', 'I want to die');
 
         $this->assertSame('crisis_cards', $r['ui_mode']);
-        $this->assertCount(3, $r['options']);
+        $this->assertCount(4, $r['options']);
+        $this->assertSame('14416', $r['options'][0]['id'], 'Tele-MANAS is offered first');
     }
 }

@@ -26,7 +26,7 @@ class TicketController extends Controller
 
     public function create(Request $request)
     {
-        $request->validate(['subject' => 'required|string']);
+        $request->validate(['subject' => 'required|string|max:500']);
         $user = Auth::user();
 
         if ($this->ticketService->getUserActiveTicket($user->id)) {

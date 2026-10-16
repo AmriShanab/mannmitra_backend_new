@@ -21,7 +21,7 @@ class StoreMoodRequest extends FormRequest
     protected function prepareForValidation()
     {
         $this->merge([
-            'primary_mood' => $this->input('primary_food') ?? $this->input('mood'),
+            'primary_mood' => $this->input('primary_mood') ?? $this->input('mood'),
             'secondary_tags' => $this->input('secondary_tags') ?? $this->input('detail_tags'),
         ]);
     }
@@ -35,9 +35,9 @@ class StoreMoodRequest extends FormRequest
     {
         return [
             'primary_mood' => 'required|string|max:50',
-            'seconday_tags' => 'nullable|array',
+            'secondary_tags' => 'nullable|array|max:20',
             'secondary_tags.*' => 'string|max:50',
-            'note' => 'nullable|string',
+            'note' => 'nullable|string|max:5000',
         ];
     }
 

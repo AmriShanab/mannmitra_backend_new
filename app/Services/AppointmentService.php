@@ -34,32 +34,45 @@ class AppointmentService
         ]);
     }
 
+    /**
+     * Marks a verified payment. Only an unpaid booking moves forward: replaying the same
+     * signature later (e.g. after a cancellation + refund) must not revive the appointment.
+     */
     public function processPayment($appointmentId, $paymentId)
     {
+        $updated = Appointment::where('appointment_id', $appointmentId)
+            ->where('status', 'pending_payment')
+            ->update([
+                'status' => 'pending',
+                'razorpay_payment_id' => $paymentId,
+                'transaction_id' => $paymentId,
+            ]);
+
         $appointment = Appointment::where('appointment_id', $appointmentId)->firstOrFail();
-        
-        $appointment->update([
-            'status' => 'pending', 
-            'razorpay_payment_id' => $paymentId,
-            'transaction_id' => $paymentId
-        ]);
+
+        if (!$updated && $appointment->razorpay_payment_id !== $paymentId) {
+            throw new Exception('This appointment has already been paid for or is no longer active.', 409);
+        }
 
         return $appointment;
     }
 
     public function acceptRequest($appointmentId, $psychiatristId)
     {
-        $appointment = Appointment::where('appointment_id', $appointmentId)->firstOrFail();
-        if ($appointment->status != 'pending') {
+        // Conditional update so two psychiatrists accepting at once cannot both win.
+        $updated = Appointment::where('appointment_id', $appointmentId)
+            ->where('status', 'pending')
+            ->whereNull('psychiatrist_id')
+            ->update([
+                'psychiatrist_id' => $psychiatristId,
+                'status' => 'confirmed',
+            ]);
+
+        if (!$updated) {
             throw new \Exception('The Appointment is no longer available.', 400);
         }
 
-        $appointment->update([
-            'psychiatrist_id' => $psychiatristId,
-            'status' => 'confirmed',
-        ]);
-
-        return $appointment;
+        return Appointment::where('appointment_id', $appointmentId)->firstOrFail();
     }
 
     /**

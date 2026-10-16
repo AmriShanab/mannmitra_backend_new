@@ -56,6 +56,24 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(20)->by($request->user()?->id ?: $request->ip());
         });
 
+        // Staff password login: slows down password guessing per account and per IP.
+        RateLimiter::for('login', function (Request $request) {
+            return [
+                Limit::perMinute(5)->by('login:' . strtolower((string) $request->input('email')) . '|' . $request->ip()),
+                Limit::perMinute(20)->by('login-ip:' . $request->ip()),
+            ];
+        });
+
+        // Anonymous sign-up creates a user row each time; cap it per IP.
+        RateLimiter::for('guest-login', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
+        // Each call creates a Razorpay order (and for bookings, a DB row).
+        RateLimiter::for('payments', function (Request $request) {
+            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+
         // 2. Define the "admin-access" rule
         Gate::define('admin-access', function (User $user) {
             return $user->role === 'admin';

@@ -11,6 +11,15 @@ class WhatsAppController extends Controller
 {
     public function handleWebhook(Request $request)
     {
+        $secret = (string) config('services.whapi.webhook_secret');
+        if ($secret === '') {
+            return response()->json(['status' => 'error', 'reason' => 'Webhook not configured'], 503);
+        }
+        $given = (string) ($request->query('token') ?? $request->header('X-Webhook-Token', ''));
+        if (!hash_equals($secret, $given)) {
+            return response()->json(['status' => 'error', 'reason' => 'Unauthorized'], 401);
+        }
+
         Log::info('1. Whapi Webhook Received');
 
         $messages = $request->input('messages', []);
@@ -57,7 +66,8 @@ class WhatsAppController extends Controller
 
         $aiResponseText = $this->getOpenAiResponse($cleanNumber);
 
-        Log::info('3. OpenAI replied: ' . $aiResponseText);
+        // Do not log message bodies (private conversations).
+        Log::info('3. OpenAI replied (' . mb_strlen((string) $aiResponseText) . ' chars)');
 
         WhatsappMessage::create([
             'phone_number' => $cleanNumber,
@@ -83,8 +93,17 @@ class WhatsAppController extends Controller
     {
         $fileContent = null;
 
-        if (isset($audioObj['link'])) {
-            $response = Http::get($audioObj['link']);
+        // Media is fetched by id through the Whapi API only. A raw `link` from the payload is
+        // fetched only if it points at the Whapi host, so the server can't be made to request
+        // arbitrary (e.g. internal) URLs.
+        $whapiHost = parse_url((string) config('services.whapi.url'), PHP_URL_HOST);
+        $link = $audioObj['link'] ?? null;
+        $linkAllowed = is_string($link) && $whapiHost
+            && parse_url($link, PHP_URL_SCHEME) === 'https'
+            && parse_url($link, PHP_URL_HOST) === $whapiHost;
+
+        if (!isset($audioObj['id']) && $linkAllowed) {
+            $response = Http::timeout(20)->get($link);
             if ($response->successful()) {
                 $fileContent = $response->body();
             }

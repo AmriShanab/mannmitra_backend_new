@@ -30,16 +30,17 @@ class TicketRepository implements TicketRepositoryInterface
     {
         $ticket = Tickets::findOrFail($ticketId);
 
-        if ($ticket->listener_id !== null) {
-            return false; // Already assigned
-        }
+        // Conditional update so two listeners accepting at once cannot both win.
+        // Only paid ('open') tickets can be picked up.
+        $updated = Tickets::whereKey($ticket->id)
+            ->where('status', 'open')
+            ->whereNull('listener_id')
+            ->update([
+                'listener_id' => $listenerId,
+                'status' => 'in_progress'
+            ]);
 
-        $ticket->update([
-            'listener_id' => $listenerId,
-            'status' => 'in_progress'
-        ]);
-
-        return $ticket;
+        return $updated ? $ticket->fresh() : false;
     }
 
     public function markAsPaid($ticketId)

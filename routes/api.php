@@ -30,9 +30,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
-    Route::post('/sessions/start', [AuthController::class, 'guestLogin']);
-    Route::post('/auth/login', [AuthController::class, 'apiLogin']);
-    Route::post('/whatsapp/webhook', [WhatsAppController::class, 'handleWebhook']);
+    Route::post('/sessions/start', [AuthController::class, 'guestLogin'])->middleware('throttle:guest-login');
+    Route::post('/auth/login', [AuthController::class, 'apiLogin'])->middleware('throttle:login');
+    Route::post('/whatsapp/webhook', [WhatsAppController::class, 'handleWebhook'])->middleware('throttle:60,1');
     Route::post('/webhooks/razorpay', [SubscriptionController::class, 'webhook']);
 
     Route::middleware(['auth:sanctum'])->group(function () {
@@ -58,11 +58,11 @@ Route::prefix('v1')->group(function () {
             Route::get('/daily-vibe', 'dailyVibe');
         });
 
-        Route::post('journal/reflection', [JournalController::class, 'generateWeeklyReflection']);
+        Route::post('journal/reflection', [JournalController::class, 'generateWeeklyReflection'])->middleware('throttle:companion');
         Route::apiResource('journal', JournalController::class);
 
         Route::controller(ChatController::class)->group(function () {
-            Route::post('/chat', 'sendMessage');
+            Route::post('/chat', 'sendMessage')->middleware('throttle:companion');
             Route::get('/chat', 'history');
         });
 
@@ -71,14 +71,17 @@ Route::prefix('v1')->group(function () {
         Route::get('/listener/history/{ticket_id}', [ListenerChatController::class, 'getHistory']);
         Route::post('/listener/end-session', [ListenerChatController::class, 'endSession']);
         Route::get('/tickets/status/{status}', [TicketController::class, 'getTicketsByStatus']);
-        Route::post('/tickets/create', [TicketController::class, 'create']);
+        Route::post('/tickets/create', [TicketController::class, 'create'])->middleware('throttle:payments');
         Route::post('/tickets/pay-confirm', [TicketController::class, 'paymentSuccess']);
 
-        Route::get('/tickets/pool', [TicketController::class, 'listOpen']);
-        Route::post('/tickets/{id}/accept', [TicketController::class, 'accept']);
+        // Listener-only: the pool shows every waiting user's subject.
+        Route::middleware('role:listener,admin')->group(function () {
+            Route::get('/tickets/pool', [TicketController::class, 'listOpen']);
+            Route::post('/tickets/{id}/accept', [TicketController::class, 'accept']);
+        });
 
         Route::get('/subscription/plans', [SubscriptionController::class, 'plans']);
-        Route::post('/subscription/create-order', [SubscriptionController::class, 'createOrder']);
+        Route::post('/subscription/create-order', [SubscriptionController::class, 'createOrder'])->middleware('throttle:payments');
         Route::post('/subscription/purchase', [SubscriptionController::class, 'subscribe']);
         Route::get('/subscription/status', [SubscriptionController::class, 'status']);
 
@@ -89,16 +92,20 @@ Route::prefix('v1')->group(function () {
 
 
         Route::prefix('appointments')->controller(AppointmentController::class)->group(function () {
-            Route::post('/create', 'createAppointment');
+            Route::post('/create', 'createAppointment')->middleware('throttle:payments');
             Route::post('/pay-confirm', 'paymentSuccess');
-            Route::get('/pending', 'listPendingAppointments');
-            Route::get('/my-schedule', 'mySchedule');
-            Route::post('/{id}/accept', 'accept');
             Route::post('/{id}/cancel-request', 'requestCancellation');
-            Route::post('/{id}/cancel-decision', 'decideCancellation');
             Route::get('/{id}/join', 'getJoinDetails');
-            Route::get('/my-history', [AppointmentController::class, 'getAppointmentsOfUser']);
-            Route::post('/close', [AppointmentController::class, 'closingAppointments']);
+            Route::get('/my-history', 'getAppointmentsOfUser');
+            Route::post('/close', 'closingAppointments');
+
+            // Psychiatrist-only: pending requests include patients' notes.
+            Route::middleware('role:doctor,admin')->group(function () {
+                Route::get('/pending', 'listPendingAppointments');
+                Route::get('/my-schedule', 'mySchedule');
+                Route::post('/{id}/accept', 'accept');
+                Route::post('/{id}/cancel-decision', 'decideCancellation');
+            });
         });
 
         Route::get('/cbt/activities', [ActivityController::class, 'index']);
@@ -109,7 +116,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/cbt/goals/{id}/checkin', [GoalController::class, 'checkIn'])->whereNumber('id');
         Route::get('/sleep/logs', [SleepLogController::class, 'index']);
         Route::post('/sleep/logs', [SleepLogController::class, 'store']);
-        Route::post('/cbt/exercises/create-order', [ExerciseController::class, 'createOrder']);
+        Route::post('/cbt/exercises/create-order', [ExerciseController::class, 'createOrder'])->middleware('throttle:payments');
         Route::post('/cbt/exercises/purchase', [ExerciseController::class, 'purchase']);
     });
 

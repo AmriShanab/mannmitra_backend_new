@@ -22,7 +22,7 @@ class ChatController extends Controller
     public function sendMessage(Request $request)
     {
         $request->validate([
-            'message' => 'nullable|string',
+            'message' => 'nullable|string|max:4000',
             'audio' => 'nullable|file|mimes:mp3,wav,m4a,mp4,ogg|max:10240', 
         ]);
 
@@ -43,13 +43,14 @@ class ChatController extends Controller
             );
 
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            \Illuminate\Support\Facades\Log::error('Chat message failed: ' . $e->getMessage());
+            return $this->errorResponse('Something went wrong. Please try again.', 500);
         }
     }
 
     public function history(Request $request)
     {
-        $limit = $request->query('limit', 50);
+        $limit = min(200, max(1, (int) $request->query('limit', 50)));
 
         $messages = $this->chatService->getHistoryWithLimit(
             $request->user()->id, 

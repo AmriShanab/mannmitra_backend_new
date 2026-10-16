@@ -36,14 +36,14 @@ class JournalRequest extends FormRequest
     {
         return [
             'title' => 'nullable|string|max:150',
-            'content' => 'required_without:audio_path|string',
+            'content' => 'required_without:audio_path|string|max:20000',
             
             // Validate the INTERNAL name (mood_snapshot)
             'mood_snapshot' => 'nullable|string|max:50', 
             
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:30',
-            'audio_path' => 'nullable|string', 
+            'audio_path' => 'nullable|string|max:255',
             'audio_duration' => 'nullable|integer',
         ];
     }

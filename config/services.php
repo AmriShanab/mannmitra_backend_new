@@ -39,6 +39,9 @@ return [
     'whapi' => [
         'url' => env('WHAPI_URL'),
         'token' => env('WHAPI_TOKEN'),
+        // Shared secret appended to the webhook URL configured in Whapi (?token=...).
+        // Without it the webhook refuses all calls, since it spends OpenAI credit and sends messages.
+        'webhook_secret' => env('WHAPI_WEBHOOK_SECRET'),
     ],
 
     'firebase' => [

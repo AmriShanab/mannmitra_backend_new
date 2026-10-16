@@ -16,14 +16,8 @@ Route::get('/terms-and-conditions', [PrivacyPolicyController::class, 'termsAndCo
 Route::get('/delete-account', [PrivacyPolicyController::class, 'accountDeletion'])->name('account.deletion');
 
 
-Route::get('/test-admin', function () {
-    // Log in as User ID 1 (Assuming ID 1 is your Admin)
-    \Illuminate\Support\Facades\Auth::loginUsingId(2);
-    return redirect('/admin/login');
-});
-
 Route::get('/admin/login', [AuthController::class, 'showLoginForm'])->name('admin.login');
-Route::post('/admin/login', [AuthController::class, 'login'])->name('admin.login.submit');
+Route::post('/admin/login', [AuthController::class, 'login'])->middleware('throttle:login')->name('admin.login.submit');
 Route::post('/admin/logout', [AuthController::class, 'logout'])->name('admin.logout');
 
 Route::middleware(['auth:sanctum', 'can:admin-access'])->prefix('admin')->group(function() {
