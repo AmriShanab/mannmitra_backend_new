@@ -208,11 +208,16 @@ class WhatsAppController extends Controller
                 'Authorization' => 'Bearer ' . config('openai.api_key'),
                 'Content-Type' => 'application/json',
             ])->post('https://api.openai.com/v1/chat/completions', [
-                'model' => 'gpt-3.5-turbo',
+                'model' => 'gpt-4o-mini',
                 'messages' => $openAiMessages
             ]);
 
-            return $response->json('choices.0.message.content') ?? 'Sorry, my brain is offline right now!';
+            $content = $response->json('choices.0.message.content');
+            if (!$content) {
+                Log::error('OpenAI Error: HTTP ' . $response->status() . ' ' . $response->body());
+                return 'Sorry, my brain is offline right now!';
+            }
+            return $content;
         } catch (\Exception $e) {
             Log::error('OpenAI Error: ' . $e->getMessage());
             return 'I am having trouble thinking right now. Please try again later.';
