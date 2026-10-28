@@ -62,9 +62,82 @@ class AiClient
     }
 
     /**
+     * Chat completion over a ready-made message list (history included). Returns the reply text;
+     * with $json the reply is a JSON object string. Throws on failure after retries.
+     */
+    public function chatMessages(string $feature, array $messages, string $tier = self::TIER_MINI, float $temperature = 0.7, ?int $maxTokens = null, bool $json = false): string
+    {
+        $model = config("openai.models.$tier");
+        $started = microtime(true);
+        $httpStatus = null;
+
+        try {
+            $payload = [
+                'model' => $model,
+                'messages' => $messages,
+                'temperature' => $temperature,
+                'max_tokens' => $maxTokens ?? config('openai.max_tokens'),
+            ];
+            if ($json) {
+                $payload['response_format'] = ['type' => 'json_object'];
+            }
+
+            $response = $this->http(config('openai.request_timeout', 30))
+                ->post(self::BASE_URL . '/chat/completions', $payload);
+            $httpStatus = $response->status();
+            $response->throw();
+
+            $content = (string) $response->json('choices.0.message.content');
+            if ($content === '') {
+                throw new \RuntimeException('OpenAI returned empty content');
+            }
+
+            $this->log($feature, $model, $started, 'ok', $httpStatus, $response->json('usage'));
+            return $content;
+        } catch (\Throwable $e) {
+            if ($e instanceof RequestException) {
+                $httpStatus = $e->response->status();
+            }
+            $this->log($feature, $model, $started, 'error', $httpStatus);
+            throw $e;
+        }
+    }
+
+    /**
+     * Text-to-speech. Returns raw mp3 bytes, or null on failure. Input is capped so one long
+     * reply cannot become an expensive audio call.
+     */
+    public function speak(string $feature, string $text): ?string
+    {
+        $model = config('openai.models.tts');
+        $started = microtime(true);
+        $httpStatus = null;
+
+        try {
+            $response = Http::withToken(config('openai.api_key'))
+                ->timeout(30)
+                ->post(self::BASE_URL . '/audio/speech', [
+                    'model' => $model,
+                    'input' => mb_substr($text, 0, (int) config('openai.tts_max_chars', 600)),
+                    'voice' => 'alloy',
+                    'response_format' => 'mp3',
+                ]);
+            $httpStatus = $response->status();
+            $response->throw();
+
+            $this->log($feature, $model, $started, 'ok', $httpStatus);
+            return $response->body();
+        } catch (\Throwable $e) {
+            $this->log($feature, $model, $started, 'error', $httpStatus);
+            Log::error('TTS API Error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Speech-to-text. Returns null on failure so callers can degrade gracefully.
      */
-    public function transcribe(string $feature, string $filePath, string $fileName, string $language = 'en'): ?string
+    public function transcribe(string $feature, ?string $filePath, string $fileName, string $language = 'en', ?string $contents = null): ?string
     {
         $model = config('openai.models.transcribe');
         $started = microtime(true);
@@ -73,7 +146,7 @@ class AiClient
         try {
             $response = Http::withToken(config('openai.api_key'))
                 ->timeout(60)
-                ->attach('file', file_get_contents($filePath), $fileName)
+                ->attach('file', $contents ?? file_get_contents($filePath), $fileName)
                 ->post(self::BASE_URL . '/audio/transcriptions', [
                     'model' => $model,
                     'language' => $language,

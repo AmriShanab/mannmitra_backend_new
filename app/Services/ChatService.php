@@ -19,6 +19,8 @@ class ChatService
         1. You MUST return valid JSON only.
         2. Format: { \"reply\": \"string\", \"is_crisis\": boolean, \"severity\": \"none|low|medium|high\", \"reason\": \"string\" }
         
+        LENGTH: Keep 'reply' under 60 words (2-3 short sentences).
+
         CRISIS DEFINITION:
         - Set 'is_crisis': true IF the user mentions: Suicide, Self-harm, Killing themselves, Dying, or immediate violence.
         

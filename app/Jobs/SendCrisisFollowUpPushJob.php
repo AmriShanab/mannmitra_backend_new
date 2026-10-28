@@ -3,8 +3,6 @@
 namespace App\Jobs;
 
 use App\Models\User;
-use App\Repositories\CompanionRepository;
-use App\Services\AIService;
 use App\Services\NotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -12,7 +10,6 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Log;
 use App\Support\Language;
 
 class SendCrisisFollowUpPushJob implements ShouldQueue
@@ -36,51 +33,15 @@ class SendCrisisFollowUpPushJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(NotificationService $notificationService, AIService $openAi, CompanionRepository $repo): void
+    public function handle(NotificationService $notificationService): void
     {
-        $languageName = Language::promptName($this->user->language);
-
-        $session = $repo->getActiveSession($this->user->id);
-        $recentMessages = $repo->getRecentMessages($session->id, 5);
-
-        $systemPrompt = "
-            You are Mann Mitra, a warm, highly empathetic friend. 
-            SITUATION: The user logged a very low mood/crisis 2 days ago and hasn't checked in since. 
-            TASK: Write a gentle, supportive Push Notification to check on them. 
-            LANGUAGE: {$languageName}.
-            RULES: 
-            1. Acknowledge they had a hard time recently, but keep it very gentle.
-            2. Ask if they are feeling any better today.
-            3. Keep it VERY short. Title max 4 words. Body max 15 words.
-            CONTEXT: Recent Chats: {$recentMessages}
-            OUTPUT STRICTLY IN JSON:
-            {\"title\": \"<Short Push Title>\", \"body\": \"<Short Push Body>\"}
-        ";
-
-        $title = '';
-        $body = '';
-
-        try {
-            $aiData = $openAi->getChatCompletion($systemPrompt, "Generate a gentle follow-up push notification for a user who was feeling low.");
-            if (!empty($aiData['title']) && !empty($aiData['body'])) {
-                $title = $aiData['title'];
-                $body = $aiData['body'];
-            } else {
-                throw new \Exception("AI returned empty data.");
-            }
-        } catch (\Exception $e) {
-            Log::warning("AI failed to generate follow-up push for user {$this->user->id}. Error: {$e->getMessage()}");
-
-            $pool = Language::lines('push.crisis_followup', $this->user->language);
-            $fallBackMsg = Arr::random($pool);
-            $title = $fallBackMsg['title'];
-            $body = $fallBackMsg['body'];
-        }
+        // Fixed, hardcoded copy (lang/<code>/push.php): no OpenAI call for push notifications.
+        $msg = Arr::random(Language::lines('push.crisis_followup', $this->user->language));
 
         $notificationService->sendToUser(
             $this->user->fcmToken,
-            $title,
-            $body,
+            $msg['title'],
+            $msg['body'],
             ['screen' => 'mood_checkin']
         );
     }

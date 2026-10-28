@@ -55,13 +55,19 @@ return [
     | classification and short reactions.
     */
     'models' => [
-        'chat' => env('OPENAI_CHAT_MODEL', 'gpt-4o'),
+        'chat' => env('OPENAI_CHAT_MODEL', 'gpt-4o-mini'),
         'mini' => env('OPENAI_MINI_MODEL', 'gpt-4o-mini'),
-        'transcribe' => env('OPENAI_TRANSCRIBE_MODEL', 'whisper-1'),
+        'transcribe' => env('OPENAI_TRANSCRIBE_MODEL', 'gpt-4o-mini-transcribe'),
+        'tts' => env('OPENAI_TTS_MODEL', 'tts-1'),
     ],
     'retries' => (int) env('OPENAI_RETRIES', 2),
     'retry_sleep_ms' => (int) env('OPENAI_RETRY_SLEEP_MS', 300),
-    'max_tokens' => (int) env('OPENAI_MAX_TOKENS', 600),
+    // Output cap for any reply that does not set its own. ~250 tokens is roughly 150 words.
+    'max_tokens' => (int) env('OPENAI_MAX_TOKENS', 250),
+    // Longest text (characters) that is turned into speech.
+    'tts_max_chars' => (int) env('OPENAI_TTS_MAX_CHARS', 600),
+    // How many past messages go into a chat prompt.
+    'history_messages' => (int) env('OPENAI_HISTORY_MESSAGES', 10),
 
     // AI-backed chat turns per user per day (0 disables the cap). Exercises on the
     // state machine do not count against this.
@@ -76,6 +82,8 @@ return [
         'gpt-4o' => ['in' => 2.50, 'out' => 10.00],
         'gpt-4o-mini' => ['in' => 0.15, 'out' => 0.60],
         'whisper-1' => ['in' => 0.0, 'out' => 0.0],
+        'gpt-4o-mini-transcribe' => ['in' => 0.0, 'out' => 0.0],
+        'tts-1' => ['in' => 0.0, 'out' => 0.0],
     ],
 
     // Optional AI wording inside exercises. Off = fixed text only (no OpenAI calls at all).

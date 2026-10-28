@@ -126,49 +126,12 @@ class WhatsAppController extends Controller
             return null;
         }
 
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . config('openai.api_key')
-            ])
-                ->attach('file', $fileContent, 'audio.ogg')
-                ->post('https://api.openai.com/v1/audio/transcriptions', [
-                    'model' => 'whisper-1'
-                ]);
-
-            if ($response->successful()) {
-                return $response->json('text');
-            }
-
-            Log::error('Whisper Transcription Error: ' . $response->body());
-            return null;
-        } catch (\Exception $e) {
-            Log::error('Whisper Exception: ' . $e->getMessage());
-            return null;
-        }
+        return app(\App\Ai\AiClient::class)->transcribe('whatsapp.transcribe', null, 'audio.ogg', 'en', $fileContent);
     }
 
     private function generateVoice($text)
     {
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . config('openai.api_key'),
-                'Content-Type' => 'application/json',
-            ])->timeout(30)->post('https://api.openai.com/v1/audio/speech', [
-                'model' => 'tts-1',
-                'input' => $text,
-                'voice' => 'alloy',
-                'response_format' => 'mp3',
-            ]);
-
-            if ($response->successful()) {
-                return $response->body();
-            }
-            Log::error('TTS Error: ' . $response->body());
-            return null;
-        } catch (\Exception $e) {
-            Log::error('TTS Exception: ' . $e->getMessage());
-            return null;
-        }
+        return app(\App\Ai\AiClient::class)->speak('whatsapp.speak', $text);
     }
 
     private function getOpenAiResponse($phoneNumber)
@@ -177,7 +140,7 @@ class WhatsAppController extends Controller
         
         CORE RULES:
         1. MIRROR THE LANGUAGE: Detect the language and script the user is typing in and reply in that EXACT same language.
-        2. WHATSAPP STYLE: Keep messages extremely concise (1-3 short sentences max). Use emojis naturally.
+        2. WHATSAPP STYLE: Keep messages extremely concise (1-3 short sentences, under 40 words total). Use emojis naturally.
         3. THE PERSONA: Talk like a caring best friend, not a clinical doctor. Validate their feelings.
         4. BOUNDARIES (OFF-TOPIC): If the user asks for coding help (e.g., PHP, HTML), math, trivia, writing essays, or anything unrelated to mental health, politely and warmly decline. Remind them that you are here specifically for emotional support, and gently ask how they are feeling today. DO NOT fulfill the unrelated request.
         5. TEXT-BASED EXERCISES: If the user is anxious, gently offer a text-based exercise. (e.g., 'Look around and type out 3 things you can see.').
@@ -187,7 +150,7 @@ class WhatsAppController extends Controller
 
         $chatHistory = WhatsappMessage::where('phone_number', $phoneNumber)
             ->orderBy('created_at', 'desc')
-            ->take(10)
+            ->take((int) config('openai.history_messages', 10))
             ->get()
             ->reverse();
 
@@ -204,21 +167,8 @@ class WhatsAppController extends Controller
         }
 
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . config('openai.api_key'),
-                'Content-Type' => 'application/json',
-            ])->post('https://api.openai.com/v1/chat/completions', [
-                'model' => 'gpt-4o-mini',
-                'messages' => $openAiMessages
-            ]);
-
-            $content = $response->json('choices.0.message.content');
-            if (!$content) {
-                Log::error('OpenAI Error: HTTP ' . $response->status() . ' ' . $response->body());
-                return 'Sorry, my brain is offline right now!';
-            }
-            return $content;
-        } catch (\Exception $e) {
+            return app(\App\Ai\AiClient::class)->chatMessages('whatsapp.chat', $openAiMessages, \App\Ai\AiClient::TIER_MINI, 0.7, 150);
+        } catch (\Throwable $e) {
             Log::error('OpenAI Error: ' . $e->getMessage());
             return 'I am having trouble thinking right now. Please try again later.';
         }

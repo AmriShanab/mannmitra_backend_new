@@ -1,6 +1,6 @@
 <?php
 
-// Push / in-app notification text. Pools are used only when the AI cannot write a personal message.
+// Push / in-app notification text. Fixed copy for scheduled push notifications (no AI involved).
 return [
     'reminder_title' => 'Your session starts in 30 minutes ⏰',
     'reminder_body' => 'Your session starts at :time. Open the app to join.',
